@@ -1,0 +1,9 @@
+*.pyc
+token.json
+credentials.json
+*.pdf
+.env
+urls.txt
+.pytest_cache
+__pycache__
+applicant_message.txt
