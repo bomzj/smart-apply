@@ -42,6 +42,7 @@ def apply_on_site(ctx: dict, start_url: str):
     
     for link in links[:5]:  # Limit to first 5 links to avoid excessive navigation
         print(f"Visiting page: {link}")
+        page.goto(link)
         applied = apply_on_page(ctx)
         global sent_emails, submitted_forms
         sent_emails += 1 if applied == 'email' else 0
