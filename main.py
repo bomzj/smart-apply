@@ -9,6 +9,9 @@ from urllib.parse import urlparse
 from rich.live import Live
 from rich.panel import Panel
 
+from playwright_stealth import Stealth  # Or async version
+
+
 
 def hostname(url: str) -> str | None:
     return urlparse(url.strip() if '://' in url else f'https://{url.strip()}').hostname
@@ -112,6 +115,14 @@ with Live(stats_panel(), auto_refresh=True) as live:
     pw = sync_playwright().start()
     browser = pw.chromium.launch(headless=False, args=['--start-maximized'], slow_mo=50)
     page = browser.new_page(no_viewport=True)
+
+    webdriver_status = page.evaluate("navigator.webdriver")
+    print("from new_page: ", webdriver_status)
+
+    Stealth().apply_stealth_sync(page) # Apply stealth techniques to avoid detection
+
+    webdriver_status = page.evaluate("navigator.webdriver")
+    print("after stealth new_page: ", webdriver_status)
 
     for url in urls:
         print(f"Processing website: {url}")
