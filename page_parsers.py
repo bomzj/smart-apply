@@ -72,13 +72,14 @@ def extract_emails(page: Page) -> tuple[list[str], list[str]]:
         "Your task:\n"
         "1. Identify and classify emails as:\n"
         "   * 'job_emails': emails likely related to job applications (e.g., containing 'hr', 'career', 'job', 'recruit')\n"
-        "   * 'contact_emails': general contact emails (e.g., 'hello@', 'contact@', 'info@')\n"
+        "   * 'contact_emails': approachable, human-oriented general contact emails intended for broad enquiries (e.g., 'hello@', 'contact@', 'info@')."
+        "   Exclude any departmental, functional, or technical addresses such as 'support@', 'help@', 'service@', 'sales@', 'marketing@', 'webmaster@', 'admin@', 'postmaster@', 'noreply@'."
         "2. Sort emails within each category by relevancy (most relevant first).\n"
         "3. Return the result strictly in valid JSON format with the following keys:\n"
         "   - 'job_emails': array of email addresses (sorted by relevancy)\n"
         "   - 'contact_emails': array of email addresses (sorted by relevancy)\n"
     )
-    res = ask_llm(task)
+    res = ask_llm(task, model="fast")
     emails = json.loads(res)
 
     return emails['job_emails'], emails['contact_emails']  
