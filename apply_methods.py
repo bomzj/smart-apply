@@ -79,6 +79,7 @@ def job_or_contact_form(html_forms: list[str]) -> int | None:
 
 def apply_via_form(ctx, form_index: int, form_html: str) -> bool:
     page = ctx['page']
+    # TODO: expose required fields by submitting empty form
     form_data = applicant_to_form(application_template, form_html)
     # TODO: uncheck checkboxes to avoid unwanted subscriptions
     fill_form(page, form_index, form_data)
@@ -116,7 +117,7 @@ def applicant_to_form(applicant, form_html: str) -> dict[str, str]:
         .replace("{applicant}", applicant_json))
 
     # we will use more advanced smart since fast failed to detect required fields
-    res = ask_llm(applicant_to_form_prompt, model="fast")
+    res = ask_llm(applicant_to_form_prompt, model="smart")
     form_data = json.loads(res)
     
     if not form_data: raise ValueError("Failed to map applicant data to form fields")
@@ -138,8 +139,8 @@ def fill_form(page: Page, form_index: int, form_data: dict[str, str]):
         if input_locator.count() == 0:
             raise ValueError(f"No element found for name='{name}' in form[{form_index}]")
 
-        if not input_locator.is_visible():
-            continue
+        # if not input_locator.is_visible():
+        #     continue
 
         tag = input_locator.evaluate("el => el.tagName.toLowerCase()")
 
