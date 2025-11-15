@@ -93,7 +93,7 @@ def applicant_to_form(applicant, form_html: str) -> dict[str, str]:
         You are an expert form-filling assistant. Map applicant data to a job/contact form from the provided HTML snippet, outputting a JSON object like { "input_name1": "value1", ... }, using exact 'name' attributes as keys and suitable string values.
 
         Inputs:
-        - Form HTML Snippet ({form_html}): Partial <form> fragment. Parse for visible <input>, <select>, <textarea> (and labels/placeholders for context). Ignore hidden/CAPTCHA/non-interactive elements (e.g., type="hidden", display:none, aria-hidden).
+        - Form HTML Snippet ({form_html}): Partial <form> fragment. Parse for visible <input>, <select>, <textarea> (and labels/placeholders for context). Ignore hidden/CAPTCHA/non-interactive elements (e.g., type="hidden", display:none, aria-hidden) and ignore any non-fillable controls such as <button>, submit/reset buttons, and other elements that users do not type or select values into.
         - Applicant Data ({applicant}): JSON with fields like name, email, phone, resume URL, etc. Use only this data—no inventions.
 
         Internal Reasoning (Do Not Output):
@@ -101,15 +101,22 @@ def applicant_to_form(applicant, form_html: str) -> dict[str, str]:
         2. Map Data:
         - Exact matches first (e.g., applicant "email" → form "email").
         - Variations: Concatenate/combine (e.g., first+last → "full_name": "John Doe").
-        - Required/no match: Derive if possible (e.g., cover letter from experience summary) or use safe placeholder (e.g., "N/A" for optional; default phone from location). Leave blank only for truly optional/non-mappable.
+        - Required/no match:
+            • Try to derive from available applicant data (e.g., use experience summary as a cover-letter-style text).
+            • If derivation is impossible, use type-appropriate safe placeholders:
+              • phone fields → structurally valid fallback such as "+0000000000")
+              • postal/zip → "00000"
+              • dates → "1970-01-01" or nearest valid default
+            • Do not use "N/A" for any field that is commonly validated (phone, email, postal code, URLs, dates).
+            • For fields that are required but do not commonly require strict format
+            (e.g., generic text fields): use "N/A".
+            • Never leave a required field empty.
         - Optional/no mapping: Skip entirely.
-        - Edge cases: <select> → best 'value' option; checkboxes → "on" if checked; files → resume URL/placeholder like "resume.pdf".
-        3. Validate: Strings only (format: phones "+48 123 456 789", dates "YYYY-MM-DD"). Ensure completeness for required fields.
+        - Edge cases: <select> → best 'value' option; checkboxes → "on" if checked;.
 
         Output: Valid JSON only—no text. Empty {} if no mappable fields or parse fails. Keys as-is (e.g., "full_name"). Escape JSON specials.
         """
-
-
+    
     applicant_json = json.dumps(applicant, ensure_ascii=False)
                               
     applicant_to_form_prompt = (applicant_to_form_prompt
