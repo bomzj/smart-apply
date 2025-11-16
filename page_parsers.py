@@ -30,29 +30,34 @@ def extract_links_to_visit(page: Page) -> list[str]:
     if not links: return []
 
     task = (
-        f"Given the following list of URLs found on the page at {url}:\n\n"
-        f"{json.dumps(links, indent=2)}\n\n"
-        "Your task:\n"
-        "1. Extract all links related to job applications or career opportunities (e.g., containing 'career', 'job', 'vacancies', 'work-with-us'), "
-        "but only include generic, top-level pages (i.e., those that end directly with '/careers', '/jobs', '/vacancies', etc.) "
-        "and exclude nested or specific job listings such as '/careers/frontend-developer' or '/jobs/123'.\n"
-        "   - Valid examples: '/careers', '/jobs', '/en/vacancies', '/de-de/work-with-us'\n"
-        "   - Invalid examples: '/careers/frontend-developer', '/jobs/detail/123', '/en/careers/web-developer'\n"
-        "   - Include localized/variant forms with language prefixes (e.g., '/en/careers', '/de-de/jobs').\n"
-        "2. Extract only generic contact or company information page links that represent high-level pages about the company itself. "
-        "These typically include paths like:\n"
-        "   - '/contact', '/contact-us', '/about', '/about-us', '/company'\n"
-        "   - or localized/variant forms with a language prefix (e.g., '/en/contact', '/de-de/about-us', '/fr/company')\n"
-        "   - or localized equivalents containing translated words such as 'kontakt', 'ueber-uns', etc.\n"
-        "   - Valid examples: '/contact', '/en/contact', '/de-de/about-us', '/company/about'\n"
-        "   - Invalid examples: '/about/team', '/contact/form', '/de/contact/support', '/company/about/history'\n"
-        "   - Exclude any clearly nested subpages (i.e., those with additional segments beyond the main company/contact page).\n"
-        "3. Return the result strictly in valid JSON format with the following keys:\n"
-        "   - 'job_pages': array of URLs (sorted by relevancy)\n"
-        "   - 'contact_pages': array of URLs (sorted by relevancy)\n"
+    f"Given the following list of URLs found on the page at {url}:\n\n"
+    f"{json.dumps(links, indent=2)}\n\n"
+    "Your task:\n"
+    "1. Extract all links related to job applications or career opportunities. Look for paths containing keywords like 'career', 'job', 'vacancies', 'work-with-us', 'opportunities', 'hiring', or localized equivalents (e.g., 'stellen', 'emplois').\n"
+    "   - Focus ONLY on generic, top-level pages (not specific job postings). A page is 'generic' if:\n"
+    "     - The path contains the keywords but lacks segments indicating a specific role, title, ID, or detail (e.g., no 'frontend', 'developer', '123', 'apply/abc', or similar).\n"
+    "     - It's a high-level hub for browsing/open roles, even if nested under a parent like '/who-we-are' or '/about'.\n"
+    "   - Valid examples: '/careers', '/jobs', '/en/vacancies', '/de-de/work-with-us', '/who-we-are/culture-and-careers', '/culture/jobs', '/en/opportunities'.\n"
+    "   - Invalid examples: '/careers/frontend-developer', '/jobs/detail/123', '/en/careers/web-developer-role', '/hiring/senior-engineer/abc'.\n"
+    "   - Include localized/variant forms with language prefixes (e.g., '/en/careers', '/de-de/jobs').\n"
+    "   - For each candidate link, briefly reason if it's generic (1-2 sentences) in your thinking, then include only valid ones.\n"
+    "2. Extract only generic contact or company information page links that represent high-level pages about the company itself.\n"
+    "   These typically include paths like:\n"
+    "   - '/contact', '/contact-us', '/about', '/about-us', '/company'.\n"
+    "   - Or localized/variant forms with a language prefix (e.g., '/en/contact', '/de-de/about-us', '/fr/company').\n"
+    "   - Or localized equivalents containing translated words such as 'kontakt', 'ueber-uns', 'a-propos', 'entreprise', etc.\n"
+    "   - Valid examples: '/contact', '/en/contact', '/de-de/about-us', '/company/about', '/who-we-are'.\n"
+    "   - Invalid examples: '/about/team', '/contact/form', '/de/contact/support', '/company/about/history', '/ueber-uns/gmbh-details'.\n"
+    "   - Exclude any clearly nested subpages (i.e., those with additional segments beyond the main company/contact page).\n"
+    "   - For each candidate link, briefly reason if it's high-level/generic (1-2 sentences) in your thinking, then include only valid ones.\n"
+    "3. Sort each array by relevancy: most direct/central matches first (e.g., '/careers' before '/who-we-are/careers').\n"
+    "4. Return the result strictly in valid JSON format with the following keys:\n"
+    "   - 'job_pages': array of full URLs (strings).\n"
+    "   - 'contact_pages': array of full URLs (strings).\n"
+    "Do not include any other text, explanations, or keys outside this JSON."
     )
 
-    res = ask_llm(task)
+    res = ask_llm(task, "smart")
     extracted_links = json.loads(res)
     all_links = extracted_links['job_pages'] + extracted_links['contact_pages']
 
