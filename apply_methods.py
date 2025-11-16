@@ -146,9 +146,6 @@ def fill_form(page: Page, form_index: int, form_data: dict[str, str]):
         if input_locator.count() == 0:
             raise ValueError(f"No element found for name='{name}' in form[{form_index}]")
 
-        # if not input_locator.is_visible():
-        #     continue
-
         tag = input_locator.evaluate("el => el.tagName.toLowerCase()")
 
         if tag == "input":
@@ -177,8 +174,11 @@ def submit_form(page: Page, form_index: int):
     form_handle = form_locator.element_handle()
 
     # Submit the form and wait for potential form submission response
-    with page.expect_response(lambda res: res.request.method == "POST"):
-        form_locator.locator('button[type="submit"], input[type="submit"]').first.click()
+    try:
+        with page.expect_response(lambda res: res.request.method == "POST"):
+            form_locator.locator('button[type="submit"], input[type="submit"]').first.click()
+    except TimeoutError:
+        print("No form submission response detected, proceeding to validation.")
     
     # Assume successful form submission hides the form, including redirects to thank you pages
     # if form is detached from DOM it will raise an error
