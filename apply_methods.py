@@ -141,7 +141,7 @@ def fill_form(page: Page, form_index: int, form_data: dict[str, str]):
     form = page.locator("form").nth(form_index)
 
     for name, value in form_data.items():
-        input_locator = form.locator(f'[name="{name}"]')
+        input_locator = form.locator(f'[name="{name}"]').first
 
         if input_locator.count() == 0:
             raise ValueError(f"No element found for name='{name}' in form[{form_index}]")
