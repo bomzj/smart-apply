@@ -113,13 +113,15 @@ submitted_forms = 0
 with Live(stats_panel(), auto_refresh=True) as live:
     pw = sync_playwright().start()
     browser = pw.chromium.launch(headless=False, args=['--start-maximized'], slow_mo=50)
-    page = browser.new_page(no_viewport=True)
-
-    Stealth().apply_stealth_sync(page) # Apply stealth techniques to avoid detection
 
     for url in urls:
         print(f"Processing website: {url}")
+        
+        # Create a new page for each website to ensure a clean state
+        page = browser.new_page(no_viewport=True)
+        Stealth().apply_stealth_sync(page) # Apply stealth techniques to avoid detection
         ctx = {'page': page}
+        
         try:
             host = hostname(url)
             apply_on_site(ctx, url)
@@ -129,6 +131,7 @@ with Live(stats_panel(), auto_refresh=True) as live:
             processed_sites += 1
             print(f"Finished processing website: {host}\n")
             live.update(stats_panel())
+            page.close()
 
     browser.close()
     pw.stop()
