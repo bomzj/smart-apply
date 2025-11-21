@@ -72,7 +72,7 @@ def job_or_contact_form(html_forms: list[str]) -> int | None:
       Do not include any explanations, reasoning, or additional text in your response.
   """
   
-  res = ask_llm(task)
+  res = ask_llm(task, "smart")
 
   return int(res) if res.isdigit() else None
 
