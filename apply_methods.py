@@ -32,9 +32,12 @@ def apply_on_page(ctx) -> ApplyMethod | None:
     if form_index is not None:
         # preserve current url since form submission may redirect
         url = page.url
-        apply_via_form(ctx, form_index, forms[form_index])
-        print(f"Submitted form at {url}\n")
-        return 'form'  
+        form_submitted, submit_err = safe_call(apply_via_form, ctx, form_index, forms[form_index])
+        if form_submitted:
+            print(f"Submitted form at {url}\n")
+            return 'form'
+        else:
+            print(f"Failed to submit form at {page.url}: {submit_err}\n")
 
     # Priority 3: fallback to generic contact email
     if contact_emails:
@@ -42,7 +45,8 @@ def apply_on_page(ctx) -> ApplyMethod | None:
         print(f"Sent email to {contact_emails[0]}\n")
         return 'email'
     
-    print(f"No application method found on this page {page.url}.\n")
+    if not job_emails and not contact_emails and form_index is None:
+        print(f"No application method found on this page {page.url}.\n")
     
     # No valid method found
     return None
