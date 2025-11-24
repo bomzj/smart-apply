@@ -1,0 +1,15 @@
+services:
+  smart-apply:
+    container_name: smart-apply
+    build:
+      context: .
+      dockerfile: Dockerfile
+    shm_size: '2gb' # increase /dev/shm size for applications that require more shared memory
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    tmpfs:
+      - /tmp:size=1G # write to RAM for better performance
+    stdin_open: true
+    tty: true
+    command: bash
