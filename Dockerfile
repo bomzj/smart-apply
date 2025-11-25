@@ -7,10 +7,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # install Playwright browsers
-RUN playwright install
+#RUN playwright install
 
 # Install Camoufox stealth browser
-#RUN camoufox fetch
+RUN camoufox fetch
 
 # Set default command
 CMD ["bash"]

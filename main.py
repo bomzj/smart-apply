@@ -1,6 +1,9 @@
 import json
 import time
+import tkinter
 from playwright.sync_api import sync_playwright, Page
+from camoufox.sync_api import NewBrowser
+
 from apply_methods import apply_on_page
 from page_parsers import extract_links_to_visit
 from urllib.parse import urlparse
@@ -8,8 +11,6 @@ from urllib.parse import urlparse
 # Rich imports for fixed stats display
 from rich.live import Live
 from rich.panel import Panel
-
-from playwright_stealth import Stealth
 
 
 def hostname(url: str) -> str | None:
@@ -26,10 +27,6 @@ def apply_on_site(ctx: dict, start_url: str):
 
     start_url = ensure_https(start_url)
     page.goto(start_url)
-
-    # company_name = infer_company_name(page)
-    # print(f"Inferred company name for {host}: {company_name}\n")
-    # ctx['company_name'] = company_name
 
     # Extract page links related to jobs and contact info
     links = extract_links_to_visit(page)
@@ -101,7 +98,13 @@ else:
     print("No URLs found in urls.txt. Exiting.")
     exit(0)
 
-print('Launching Chrome browser...')
+# Get the actual screen resolution dynamically
+root = tkinter.Tk()
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+root.destroy()
+
+print('Launching browser...')
 
 # Global Counters
 total_sites = len(urls)
@@ -111,15 +114,20 @@ submitted_forms = 0
 
 # Start the live stats display (wraps all processing)
 with Live(stats_panel(), auto_refresh=True) as live:
+
     pw = sync_playwright().start()
-    browser = pw.chromium.launch(headless=False, args=['--start-maximized'], slow_mo=50)
+    browser = NewBrowser(
+        pw, 
+        headless=False, 
+        humanize=True, 
+        window=(screen_width, screen_height)
+    )
 
     for url in urls:
         print(f"Processing website: {url}")
         
         # Create a new page for each website to ensure a clean state
         page = browser.new_page(no_viewport=True)
-        Stealth().apply_stealth_sync(page) # Apply stealth techniques to avoid detection
         ctx = {'page': page}
         
         try:
