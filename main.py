@@ -1,16 +1,18 @@
 import json
 import time
 import tkinter
+from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, Page
 from camoufox.sync_api import NewBrowser
 
 from apply_methods import apply_on_page
 from page_parsers import extract_links_to_visit
-from urllib.parse import urlparse
 
 # Rich imports for fixed stats display
 from rich.live import Live
 from rich.panel import Panel
+
+from captcha_solver import detect_cloudflare_interstitial_challenge, solve_cloudflare_interstitial_challenge
 
 
 def hostname(url: str) -> str | None:
@@ -27,6 +29,18 @@ def apply_on_site(ctx: dict, start_url: str):
 
     start_url = ensure_https(start_url)
     page.goto(start_url)
+    
+    # Detect and solve Cloudflare interstitial challenge if present
+    cf_detected = detect_cloudflare_interstitial_challenge(page)
+    if cf_detected:
+        print(f"Cloudflare interstitial challenge detected on {host}, attempting to solve...")
+        solved = solve_cloudflare_interstitial_challenge(page, timeout=60000)
+    
+    if cf_detected and solved:
+        print(f"Successfully solved Cloudflare challenge on {host}.")
+    elif cf_detected and not solved:
+        print(f"Failed to solve Cloudflare challenge on {host}. Skipping this site.\n")
+        return
 
     # Extract page links related to jobs and contact info
     links = extract_links_to_visit(page)
@@ -50,29 +64,6 @@ def apply_on_site(ctx: dict, start_url: str):
 
     if not applied:
         print(f"No email or form application were found on website {host}.\n")
-
-
-def wait_for_network_idle(page: Page, timeout=30000, idle_time=1000):
-    start_time = time.time()
-    last_activity_time = time.time()
-
-    def on_request_finished(request):
-        nonlocal last_activity_time
-        last_activity_time = time.time()
-
-    page.on("requestfinished", on_request_finished)
-
-    while True:
-        page.wait_for_timeout(1000)
-        now = time.time()
-        if now - start_time > timeout / 1000:
-            print("Timeout reached while waiting for network to be idle.")
-            break
-        if now - last_activity_time >= idle_time / 1000:
-            print("Network is idle.")
-            break
-
-    page.remove_listener("requestfinished", on_request_finished)
 
 
 def stats_panel():
@@ -120,14 +111,17 @@ with Live(stats_panel(), auto_refresh=True) as live:
         pw, 
         headless=False, 
         humanize=True, 
-        window=(screen_width, screen_height)
+        window=(screen_width, screen_height),
+        # Allow cookies/session to persist to avoid repeated captcha challenges
+        persistent_context=True, 
+        user_data_dir="./browser_session_data"
     )
 
     for url in urls:
         print(f"Processing website: {url}")
         
         # Create a new page for each website to ensure a clean state
-        page = browser.new_page(no_viewport=True)
+        page = browser.new_page()
         ctx = {'page': page}
         
         try:

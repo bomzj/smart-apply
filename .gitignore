@@ -7,3 +7,4 @@ urls.txt
 .pytest_cache
 __pycache__
 applicant_message.txt
+/browser_session_data

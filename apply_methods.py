@@ -48,7 +48,6 @@ def apply_on_page(ctx) -> ApplyMethod | None:
     if not job_emails and not contact_emails and form_index is None:
         print(f"No application method found on this page {page.url}.\n")
     
-    # No valid method found
     return None
 
 
