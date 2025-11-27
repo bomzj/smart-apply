@@ -3,14 +3,11 @@ import pytest
 from typing import Literal
 from playwright.sync_api import sync_playwright, Page
 from camoufox.sync_api import NewBrowser
-from captcha_solver import *
+from cloudflare_challenge import *
 
 
-# List of URLs that are known to trigger Cloudflare interstitial/Challenge
-CLOUDFLARE_TEST_URLS = [
-    "https://scrapingtest.com/cloudflare-challenge",
-    "https://www.scrapingcourse.com/login/cf-antibot",
-]
+CLOUDFLARE_INTERSTITIAL_URL = 'https://2captcha.com/demo/cloudflare-turnstile-challenge'
+CLOUDFLARE_TURNSTILE_URL = 'https://2captcha.com/demo/cloudflare-turnstile'
 
 
 @pytest.fixture(scope="session")
@@ -55,17 +52,27 @@ def page(browser):
     page.close()
 
 
-@pytest.mark.parametrize("url", CLOUDFLARE_TEST_URLS)
-def test_cloudflare_interstitial_detection(url, page):
-    #print(f"\nDetecting Cloudflare challenge on: {url}")
-    page.goto(url)
-    detected = detect_cloudflare_interstitial_challenge(page)
-    assert detected, "Cloudflare interstitial challenge was not detected when expected."
+def test_cloudflare_interstitial_detection(page):
+    page.goto(CLOUDFLARE_INTERSTITIAL_URL)
+    _, type = find_cf_challenge(page)
+    assert type == "interstitial", "Cloudflare interstitial challenge was not detected when expected."
     
 
-@pytest.mark.parametrize("url", CLOUDFLARE_TEST_URLS)
-def test_cloudflare_interstitial_solver(url, page):
-    print(f"Navigating to {url}...")
-    page.goto(url)
-    solved = solve_cloudflare_interstitial_challenge(page, timeout=60000)
+def test_cloudflare_turnstile_detection(page):
+    page.goto(CLOUDFLARE_TURNSTILE_URL)
+    _, type = find_cf_challenge(page)
+    assert type == "turnstile", "Cloudflare turnstile challenge was not detected when expected."
+
+
+def test_cloudflare_interstitial_solver(page):
+    page.goto(CLOUDFLARE_INTERSTITIAL_URL)
+    captcha, type = find_cf_challenge(page)
+    solved = solve_cf_challenge(captcha, type)
     assert solved, "Failed to solve Cloudflare interstitial challenge."
+
+
+def test_cloudflare_turnstile_solver(page):
+    page.goto(CLOUDFLARE_TURNSTILE_URL)
+    captcha, type = find_cf_challenge(page)
+    solved = solve_cf_challenge(captcha, type)
+    assert solved, "Failed to solve Cloudflare turnstile challenge."

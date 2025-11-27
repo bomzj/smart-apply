@@ -12,7 +12,7 @@ from page_parsers import extract_links_to_visit
 from rich.live import Live
 from rich.panel import Panel
 
-from captcha_solver import detect_cloudflare_interstitial_challenge, solve_cloudflare_interstitial_challenge
+from cloudflare_challenge import find_cf_challenge, solve_cf_challenge
 
 
 def hostname(url: str) -> str | None:
@@ -31,10 +31,10 @@ def apply_on_site(ctx: dict, start_url: str):
     page.goto(start_url)
     
     # Detect and solve Cloudflare interstitial challenge if present
-    cf_detected = detect_cloudflare_interstitial_challenge(page)
+    cf_detected = find_cf_challenge(page)
     if cf_detected:
         print(f"Cloudflare interstitial challenge detected on {host}, attempting to solve...")
-        solved = solve_cloudflare_interstitial_challenge(page, timeout=60000)
+        solved = solve_cf_challenge(page, timeout=60000)
     
     if cf_detected and solved:
         print(f"Successfully solved Cloudflare challenge on {host}.")
