@@ -1,6 +1,7 @@
 import json
 import time
 import tkinter
+import logging
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, Page
 from camoufox.sync_api import NewBrowser
@@ -13,6 +14,7 @@ from rich.live import Live
 from rich.panel import Panel
 
 from cloudflare_challenge import find_cf_challenge, solve_cf_challenge
+from result import safe_call
 
 
 def hostname(url: str) -> str | None:
@@ -40,7 +42,7 @@ def apply_on_site(ctx: dict, start_url: str):
         print(f"Successfully solved Cloudflare challenge on {host}.")
     elif cf_detected and not solved:
         print(f"Failed to solve Cloudflare challenge on {host}. Skipping this site.\n")
-        return
+        return False
 
     # Extract page links related to jobs and contact info
     links = extract_links_to_visit(page)
@@ -65,6 +67,8 @@ def apply_on_site(ctx: dict, start_url: str):
     if not applied:
         print(f"No email or form application were found on website {host}.\n")
 
+    return bool(applied)
+
 
 def stats_panel():
     applied = sent_emails + submitted_forms
@@ -76,6 +80,19 @@ def stats_panel():
         title="Apply to Jobs Progress",
         border_style="blue"
     )
+
+
+def logger(name: str, path: str, fmt: str = '%(message)s') -> logging.Logger:
+    log = logging.getLogger(name)
+    log.setLevel(logging.INFO)
+
+    if not log.handlers:
+        handler = logging.FileHandler(path, mode="a", encoding="utf-8")
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(logging.Formatter(fmt))
+        log.addHandler(handler)
+
+    return log
 
 
 ## Main
@@ -117,6 +134,8 @@ with Live(stats_panel(), auto_refresh=True) as live:
         user_data_dir="./browser_session_data"
     )
 
+    failed_urls_log = logger('failed_urls', 'failed_urls.log')
+
     for url in urls:
         print(f"Processing website: {url}")
         
@@ -124,16 +143,19 @@ with Live(stats_panel(), auto_refresh=True) as live:
         page = browser.new_page()
         ctx = {'page': page}
         
-        try:
-            host = hostname(url)
-            apply_on_site(ctx, url)
-        except Exception as e:
-            print(f"Failed to apply on website: {host} \n{e}\n")
-        finally:
-            processed_sites += 1
-            print(f"Finished processing website: {host}\n")
-            live.update(stats_panel())
-            page.close()
+        host = hostname(url)
+        applied, err = safe_call(apply_on_site, ctx, url)
+        
+        if not applied:
+            failed_urls_log.info(url)
+
+        if err:
+            print(f"Failed to apply on website: {host} \n{err}\n")
+    
+        processed_sites += 1
+        print(f"Finished processing website: {host}\n")
+        live.update(stats_panel())
+        page.close()
 
     browser.close()
     pw.stop()

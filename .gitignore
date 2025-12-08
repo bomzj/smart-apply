@@ -8,3 +8,4 @@ urls.txt
 __pycache__
 applicant_message.txt
 /browser_session_data
+*.log
