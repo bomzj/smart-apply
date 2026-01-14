@@ -154,10 +154,18 @@ def fill_form(page: Page, form_index: int, form_data: dict[str, str]):
         if tag == "input":
             input_type = input_locator.evaluate("el => el.type")
             if input_type in ("checkbox", "radio"):
+                # For radios and checkbox groups, select the specific option by value
                 specific_locator = form.locator(f'[name="{name}"][value="{value}"]')
-                if specific_locator.count() == 0:
-                    raise ValueError(f"No matching value '{value}' for name='{name}' in form[{form_index}]")
-                specific_locator.check()
+                if specific_locator.count() > 0:
+                    specific_locator.check()
+                # Treat single checkbox differently
+                elif input_type == "checkbox":
+                    # Handle boolean toggles (allows unchecking!)
+                    should_check = str(value).lower() in ["true", "1", "yes", "on"]
+                    input_locator.set_checked(should_check)
+                else:
+                    # Raise error for radios so you don't accidentally select the wrong one
+                    raise ValueError(f"Radio option '{value}' not found for name='{name}'")
             elif input_type == "file":
                 input_locator.set_input_files(value)
             else:
