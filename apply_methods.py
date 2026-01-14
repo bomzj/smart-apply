@@ -86,7 +86,7 @@ def apply_via_form(ctx, form_index: int, form_html: str) -> bool:
     form_data = applicant_to_form(application_template, form_html)
     # TODO: uncheck checkboxes to avoid unwanted subscriptions
     fill_form(page, form_index, form_data)
-    submit_form(page, form_index)
+    return submit_form(page, form_index)
     
 
 def applicant_to_form(applicant, form_html: str) -> dict[str, str]:
@@ -181,7 +181,7 @@ def fill_form(page: Page, form_index: int, form_data: dict[str, str]):
             raise ValueError(f"Unsupported element <{tag}> for name='{name}'")
     
 
-def submit_form(page: Page, form_index: int):
+def submit_form(page: Page, form_index: int) -> bool:
     form_locator = page.locator('form').nth(form_index)
 
     # Capture handle to the correct form
@@ -199,14 +199,14 @@ def submit_form(page: Page, form_index: int):
     visible, err = safe_call(lambda: form_handle.is_visible(), log_exception=False) 
     if err or not visible:
         print(f"Form submission appears successful (form is no longer visible).")
-        return
+        return True
 
     # Also assume successful submission when input fields are cleared
     inputs = form_locator.locator('input[type="text"], input[type="email"]').all()    
     _, err = safe_call(lambda: [expect(inp).to_have_value("") for inp in inputs], log_exception=False)
     if not err:
         print(f"Form submission appears successful (input fields cleared).")
-        return
+        return True
 
     # As the last resort, prompt to verify submission success
     page_text = html_to_plain_text(page.content())
@@ -241,6 +241,8 @@ def submit_form(page: Page, form_index: int):
 
     if res.get("error"):
         raise ValueError(f"Form submission validation error: {res['error']}")
+    
+    return True
 
 
 def apply_via_email(ctx, email_to):
