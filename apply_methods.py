@@ -103,7 +103,10 @@ def applicant_to_form(applicant, form_html: str) -> dict[str, str]:
         1. Parse Form: List all visible controls with 'name', type, required status (via 'required', *, or cues like "must provide"), and purpose (from name/label/placeholder, e.g., "email" → email field).
         2. Map Data:
         - Exact matches first (e.g., applicant "email" → form "email").
-        - Variations: Concatenate/combine (e.g., first+last → "full_name": "John Doe").
+        - Specific Field Handling:
+            • For message/comment/body textareas: Map ONLY 'applicant.message'. Do NOT prepend or include 'applicant.subject' in this field unless the form specifically labels the field as "Subject and Message".
+            • If a distinct "Subject" field exists in the form, map 'applicant.subject' there. Otherwise, drop the subject.
+        - Name Variations: Concatenate/combine ONLY for name fields (e.g., first+last -> "full_name": "John Doe").
         - Required/no match:
             • Try to derive from available applicant data (e.g., use experience summary as a cover-letter-style text).
             • If derivation is impossible, use type-appropriate safe placeholders:
