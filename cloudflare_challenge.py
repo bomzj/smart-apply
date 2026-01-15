@@ -66,9 +66,9 @@ def solve_cf_challenge(captcha: Locator,
     except:
         print("No navigation after clicking challenge, continuing...")
 
-    captcha, type = find_cf_challenge(page)
+    cf = find_cf_challenge(page)
 
-    if not captcha:
+    if not cf:
         #print("Cloudflare challenge is solved.")
         return True
         
