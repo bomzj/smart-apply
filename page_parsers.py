@@ -94,19 +94,23 @@ def extract_emails(page: Page) -> tuple[list[str], list[str]]:
     content = page.content()
     html_text = html_to_plain_text(content)
     task = (
-        f"Given the following plain text extracted from the page at {url} (all HTML tags, scripts, styles, images, and other non-text content have been removed):\n\n"
+        f"Given the following text from {url}:\n\n"
         f"{html_text}\n\n"
-        "Your task:\n"
-        "1. Identify and classify emails as:\n"
-        "   * 'job_emails': emails likely related to job applications (e.g., containing 'hr', 'career', 'job', 'recruit')\n"
-        "   * 'contact_emails': approachable, human-oriented general contact emails intended for broad enquiries (e.g., 'hello@', 'contact@', 'info@')."
-        "   Exclude any departmental, functional, or technical addresses such as 'support@', 'help@', 'service@', 'sales@', 'marketing@', 'webmaster@', 'admin@', 'postmaster@', 'noreply@'."
-        "2. Sort emails within each category by relevancy (most relevant first).\n"
-        "3. Return the result strictly in valid JSON format with the following keys:\n"
-        "   - 'job_emails': array of email addresses (sorted by relevancy)\n"
-        "   - 'contact_emails': array of email addresses (sorted by relevancy)\n"
+        "Your task is to extract and categorize emails with high precision:\n\n"
+        "1. 'job_emails': ONLY addresses specifically intended for submitting resumes or contacting recruiters (e.g., careers@, jobs@, recruitment@, hr@). "
+        "EXCLUDE administrative HR functions like 'verifications@', 'benefits@', or 'payroll@'.\n"
+        "2. 'contact_emails': General-purpose, human-facing inquiry addresses (e.g., info@, hello@, contact@).\n\n"
+        "STRICT EXCLUSIONS (Do not include these in any category):\n"
+        "- Technical/Automated: support@, help@, webmaster@, noreply@, dev@, admin@\n"
+        "- Functional/Transactional: sales@, marketing@, billing@, privacy@, verifications@, media@, press@, legal@\n\n"
+        "3. Return a valid JSON object:\n"
+        "{\n"
+        "  'job_emails': [],\n"
+        "  'contact_emails': []\n"
+        "}\n"
+        "Sort by relevance. If no emails match a category, return an empty array."
     )
-    res = ask_llm(task, model="fast")
+    res = ask_llm(task, model="smart")
     emails = json.loads(res)
 
     return emails['job_emails'], emails['contact_emails']  
