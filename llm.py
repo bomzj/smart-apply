@@ -30,7 +30,7 @@ def ask_llm(message: str, model: Model = "fast") -> str:
     return response.choices[0].message.content
 
 # Configure telemetry to debug model behavior and monitor usage
-if getenv("LANGFUSE_ENABLED"):
+if getenv("LANGFUSE_ENABLED").lower() == "true":
     langfuse = Langfuse(
         public_key=getenv("LANGFUSE_PUBLIC_KEY"),
         secret_key=getenv("LANGFUSE_SECRET_KEY"),
