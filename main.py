@@ -35,8 +35,9 @@ def apply_on_site(ctx: dict, start_url: str):
     # Detect and solve Cloudflare interstitial challenge if present
     cf_detected = find_cf_challenge(page)
     if cf_detected:
+        captcha_locator, _ = cf_detected
         print(f"Cloudflare interstitial challenge detected on {host}, attempting to solve...")
-        solved = solve_cf_challenge(page, timeout=60000)
+        solved = solve_cf_challenge(captcha_locator)
     
     if cf_detected and solved:
         print(f"Successfully solved Cloudflare challenge on {host}.")
