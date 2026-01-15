@@ -5,7 +5,7 @@ from page_parsers import extract_emails, extract_forms, html_to_plain_text
 from applicant import application_template
 from smolagents import tool
 from result import safe_call
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, TimeoutError, expect
 from gmail import send_email_from_me
 
 
@@ -192,7 +192,8 @@ def submit_form(page: Page, form_index: int) -> bool:
         with page.expect_response(lambda res: res.request.method == "POST"):
             form_locator.locator('button[type="submit"], input[type="submit"]').first.click()
     except TimeoutError:
-        print("No form submission response detected, proceeding to validation.")
+        print("No form submission response detected.")
+        print("Checking for form submission success...")
     
     # Assume successful form submission hides the form, including redirects to thank you pages
     # if form is detached from DOM it will raise an error
