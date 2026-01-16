@@ -137,8 +137,8 @@ def send_email_from_me(to, subject, body, attachments=None):
         if e.content:
             error_json = json.loads(e.content.decode('utf-8'))
             print(f"API error details: {error_json}")
-        # TODO: Implement retry logic
-        # as of now exit to avoid hitting rate limits again
+        # TODO: implement rate limit handling in calling code
+        print("Exitting due to potential Gmail API limit has reached.")
         exit(0)
         #raise # propagate exception for further handling
 
