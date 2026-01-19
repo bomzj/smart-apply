@@ -8,15 +8,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+LANGFUSE_ENABLED = getenv("LANGFUSE_ENABLED").lower() == "true"
+
 # Models costs per 1M tokens input/output:
 # gpt 5: 1.25/10
 # gpt 5 mini: 0.25/2
 # gpt 5 nano: 0.05/0.4
 
+
+def apply_if(decorator, condition):
+    """Apply decorator only if condition is True"""
+    return decorator if condition else lambda f: f
+
+
 # Available models
 type Model = Literal["fast", "smart"]
 
-@observe
+@apply_if(observe, LANGFUSE_ENABLED)
 def ask_llm(message: str, model: Model = "fast") -> str:
     model = getenv("AZURE_OPENAI_MODEL_" + model.upper())
     response = llm.chat.completions.create(
@@ -30,7 +38,7 @@ def ask_llm(message: str, model: Model = "fast") -> str:
     return response.choices[0].message.content
 
 # Configure telemetry to debug model behavior and monitor usage
-if getenv("LANGFUSE_ENABLED").lower() == "true":
+if LANGFUSE_ENABLED:
     langfuse = Langfuse(
         public_key=getenv("LANGFUSE_PUBLIC_KEY"),
         secret_key=getenv("LANGFUSE_SECRET_KEY"),
