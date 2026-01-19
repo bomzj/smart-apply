@@ -3,26 +3,24 @@ from playwright.sync_api import Page, Locator
 from playwright_utils import wait_until
 
 
-def find_recaptcha(page: Page):
+def find_recaptcha(container: Locator) -> Locator | None:
     markers = ['grecaptcha', 'recaptcha/api.js', 'recaptcha__', 'g-recaptcha']
-    content = page.content()
-    recaptcha_found = any(m in content for m in markers)
-   
-    if not recaptcha_found:
+    content = container.page.content()
+    has_recaptcha = any(m in content for m in markers)
+
+    if not has_recaptcha:
         return None
     
     try:
-        response_input = page.locator('textarea[name="g-recaptcha-response"]')
+        response_input = container.locator('textarea[name="g-recaptcha-response"]')
         response_input.wait_for(state="attached", timeout=10000)
 
         # Check if already solved
         if response_input.input_value():
-            print("ReCaptcha already solved.")
             return None  # already solved
         
         return response_input
     except:
-        print(f"Could not find ReCaptcha on {page.url}.")
         return None
 
 

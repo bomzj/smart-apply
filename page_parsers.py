@@ -3,7 +3,7 @@ import json
 from urllib.parse import urljoin
 from llm import ask_llm
 import re
-from playwright.sync_api import Page
+from playwright.sync_api import Page, Locator
 
 from result import safe_call
 
@@ -124,6 +124,11 @@ def extract_forms(page: Page) -> list[str]:
     # TODO: maybe we should scan iframes containing forms as well?
     #page.frames[0].eval_on_selector_all('form', 'els => els.map(el => el.outerHTML)')
     return forms
+
+
+def locator_to_html(loc: Locator) -> str:
+    return loc.evaluate("el => el.outerHTML")
+
 
 def html_to_plain_text(html):
     """

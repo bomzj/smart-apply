@@ -53,12 +53,12 @@ def page(browser):
     page.close()
 
 
-def test_no_recaptcha_on_standard_page(page):
+def test_no_recaptcha_on_standard_page(page: Page):
     """Verify that find_recaptcha returns nothing on a clean page."""
     page.goto(NO_RECAPTCHA_URL)
     
     # We expect find_recaptcha to return None or a falsy value
-    recaptcha = find_recaptcha(page)
+    recaptcha = find_recaptcha(page.locator('body'))
     
     assert not recaptcha, f"Expected no reCAPTCHA on {NO_RECAPTCHA_URL}, but found: {recaptcha}"
 
@@ -73,7 +73,8 @@ def test_no_recaptcha_on_standard_page(page):
 )
 def test_recaptcha_detection(page, url, expected):
     page.goto(url)
-    recaptcha = find_recaptcha(page)
+    loc = page.locator('.g-recaptcha')
+    recaptcha = find_recaptcha(loc)
     assert recaptcha, expected
     
 

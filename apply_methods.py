@@ -1,12 +1,12 @@
 import json
 from typing import Literal
 from llm import ask_llm
-from page_parsers import extract_emails, extract_forms, html_to_plain_text
+from page_parsers import extract_emails, extract_forms, html_to_plain_text, locator_to_html
 from applicant import application_template
 from smolagents import tool
 from recaptcha import find_recaptcha, solve_recaptcha
 from result import safe_call
-from playwright.sync_api import Page, TimeoutError, expect
+from playwright.sync_api import Page, Locator, TimeoutError, expect
 from gmail import send_email_from_me
 
 
@@ -27,13 +27,12 @@ def apply_on_page(ctx) -> ApplyMethod | None:
         return 'email'
 
     # Priority 2: apply via form
-    forms = extract_forms(page)
-    form_index = job_or_contact_form(forms)
+    form = job_or_contact_form(page)
     
-    if form_index is not None:
+    if form:
         # preserve current url since form submission may redirect
         url = page.url
-        form_submitted, submit_err = safe_call(apply_via_form, ctx, form_index, forms[form_index])
+        form_submitted, submit_err = safe_call(apply_via_form, ctx, form)
         if form_submitted:
             print(f"Submitted form at {url}\n")
             return 'form'
@@ -46,54 +45,56 @@ def apply_on_page(ctx) -> ApplyMethod | None:
         print(f"Sent email to {contact_emails[0]}\n")
         return 'email'
     
-    if not job_emails and not contact_emails and form_index is None:
+    if not job_emails and not contact_emails and form is None:
         print(f"No application method found on this page {page.url}.\n")
     
     return None
 
 
-def job_or_contact_form(html_forms: list[str]) -> int | None:
+def job_or_contact_form(page: Page) -> Locator:
+    html_forms = extract_forms(page)
   
-  task = f"""
-      You will be given a list of HTML form elements as input, like this: ["<form>...</form>", "<form>...</form>", ...]. 
-      Each item in the list represents one form from a webpage, indexed starting from 0.\n\n
+    task = f"""
+        You will be given a list of HTML form elements as input, like this: ["<form>...</form>", "<form>...</form>", ...]. 
+        Each item in the list represents one form from a webpage, indexed starting from 0.\n\n
 
-      The list of forms:\n\n
-      {html_forms} \n\n
+        The list of forms:\n\n
+        {html_forms} \n\n
 
-      Your task is to analyze each form in the list and identify the most relevant one based on the following priorities:First, look for a job-related form. 
-      A job-related form typically includes fields or elements indicating it's for job applications, such as:Input fields with names, labels, placeholders, or types related to "CV", "resume", "upload file", "cover letter", "experience", "position", "salary", "references", or similar job application terms.
-      File upload inputs (e.g., <input type="file">) in the context of resumes or applications.
-      If multiple forms seem job-related, select the one that best matches (e.g., the one with the most relevant fields).
+        Your task is to analyze each form in the list and identify the most relevant one based on the following priorities:First, look for a job-related form. 
+        A job-related form typically includes fields or elements indicating it's for job applications, such as:Input fields with names, labels, placeholders, or types related to "CV", "resume", "upload file", "cover letter", "experience", "position", "salary", "references", or similar job application terms.
+        File upload inputs (e.g., <input type="file">) in the context of resumes or applications.
+        If multiple forms seem job-related, select the one that best matches (e.g., the one with the most relevant fields).
 
-      If no job-related form is found, fallback to identifying a contact form. A contact form typically includes general inquiry fields like "name", "email", "message", "subject", "phone", without job-specific elements.
-      If no job-related or contact form is found, output None.
+        If no job-related form is found, fallback to identifying a contact form. A contact form typically includes general inquiry fields like "name", "email", "message", "subject", "phone", without job-specific elements.
+        If no job-related or contact form is found, output None.
 
-      Examine the HTML structure of each form, including <input>, <label>, <select>, <textarea>, and any associated text or attributes, to determine its purpose. 
-      Ignore forms that are for login, search, newsletter signup, or unrelated purposes.
-            
-      Your output must be strictly a single integer (the 0-based index of the selected form) or the word "None" if nothing matches. 
-      Do not include any explanations, reasoning, or additional text in your response.
-  """
-  
-  res = ask_llm(task, "smart")
+        Examine the HTML structure of each form, including <input>, <label>, <select>, <textarea>, and any associated text or attributes, to determine its purpose. 
+        Ignore forms that are for login, search, newsletter signup, or unrelated purposes.
+                
+        Your output must be strictly a single integer (the 0-based index of the selected form) or the word "None" if nothing matches. 
+        Do not include any explanations, reasoning, or additional text in your response.
+    """
+    
+    res = ask_llm(task, "smart")
 
-  return int(res) if res.isdigit() else None
+    if res.isdigit():
+        return page.locator('form').nth(int(res))
 
 
-def apply_via_form(ctx, form_index: int, form_html: str) -> bool:
+def apply_via_form(ctx, form: Locator) -> bool:
     page = ctx['page']
     
     # TODO: expose required fields by submitting empty form
     
-    form_data = applicant_to_form(application_template, form_html)
+    form_data = applicant_to_form(application_template, form)
     
     # TODO: uncheck checkboxes to avoid unwanted subscriptions
     
-    fill_form(page, form_index, form_data)
+    fill_form(form, form_data)
     
     # Detect and solve ReCaptcha if present
-    recaptcha = find_recaptcha(page)
+    recaptcha = find_recaptcha(form)
     if recaptcha:
         print(f"ReCaptcha detected on the form {page.url}, attempting to solve...")
         solved = solve_recaptcha(recaptcha)
@@ -102,12 +103,13 @@ def apply_via_form(ctx, form_index: int, form_html: str) -> bool:
             return False
         print(f"ReCaptcha solved on {page.url}.")
 
-    return submit_form(page, form_index)
+    return submit_form(form)
     
 
-def applicant_to_form(applicant, form_html: str) -> dict[str, str]:
+def applicant_to_form(applicant, form: Locator) -> dict[str, str]:
     """Maps applicant data to form fields based on form HTML snippet."""
-    
+    form_html = locator_to_html(form)
+
     applicant_to_form_prompt = """
         You are an expert form-filling assistant. Map applicant data to a job/contact form from the provided HTML snippet, outputting a JSON object like { "input_name1": "value1", ... }, using exact 'name' attributes as keys and suitable string values.
 
@@ -154,13 +156,8 @@ def applicant_to_form(applicant, form_html: str) -> dict[str, str]:
     return form_data
 
 
-def fill_form(page: Page, form_index: int, form_data: dict[str, str]):
+def fill_form(form: Locator, form_data: dict[str, str]):
     """ Fills a specific form on the page with given form_data.  """
-    forms_count = page.locator("form").count()
-    if form_index >= forms_count:
-        raise ValueError(f"Form index {form_index} out of range. Total forms: {forms_count}")
-
-    form = page.locator("form").nth(form_index)
 
     for name, value in form_data.items():
         input_locator = form.locator(f'[name="{name}"]').first
@@ -197,16 +194,14 @@ def fill_form(page: Page, form_index: int, form_data: dict[str, str]):
             raise ValueError(f"Unsupported element <{tag}> for name='{name}'")
     
 
-def submit_form(page: Page, form_index: int) -> bool:
-    form_locator = page.locator('form').nth(form_index)
-
+def submit_form(form: Locator) -> bool:
     # Capture handle to the correct form
-    form_handle = form_locator.element_handle()
+    form_handle = form.element_handle()
 
     # Submit the form and wait for potential form submission response
     try:
-        with page.expect_response(lambda res: res.request.method == "POST"):
-            form_locator.locator('button[type="submit"], input[type="submit"]').first.click()
+        with form.page.expect_response(lambda res: res.request.method == "POST"):
+            form.locator('button[type="submit"], input[type="submit"]').first.click()
     except TimeoutError:
         print("No form submission response detected.")
         print("Checking for form submission success...")
@@ -219,14 +214,14 @@ def submit_form(page: Page, form_index: int) -> bool:
         return True
 
     # Also assume successful submission when input fields are cleared
-    inputs = form_locator.locator('input[type="text"], input[type="email"]').all()    
+    inputs = form.locator('input[type="text"], input[type="email"]').all()    
     _, err = safe_call(lambda: [expect(inp).to_have_value("") for inp in inputs], log_exception=False)
     if not err:
         print(f"Form submission appears successful (input fields cleared).")
         return True
 
     # As the last resort, prompt to verify submission success
-    page_text = html_to_plain_text(page.content())
+    page_text = html_to_plain_text(form.page.content())
     submission_validation_prompt = """
         You are a validation assistant. You will be provided with the full text content (`innerText`) of a web page **after a form submission**. Your task is to determine if the form was successfully submitted.
 
