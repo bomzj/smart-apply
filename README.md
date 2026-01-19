@@ -8,7 +8,8 @@ It uses **LLM** to analyze websites, understand forms, and automatically:
 
 - Send emails via Gmail API
 
-  
+- Bypasses Cloudflare protection and the Google reCAPTCHA "I'm not a robot" checkbox  challenge.
+
 ## Setup
 
 ### Option 1 - Without Docker (Recommended)

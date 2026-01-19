@@ -17,11 +17,12 @@ def find_recaptcha(page: Page):
 
         # Check if already solved
         if response_input.input_value():
+            print("ReCaptcha already solved.")
             return None  # already solved
         
         return response_input
     except:
-        print("Could not find ReCaptcha.")
+        print(f"Could not find ReCaptcha on {page.url}.")
         return None
 
 

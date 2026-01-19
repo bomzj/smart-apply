@@ -6,6 +6,7 @@ from camoufox.sync_api import NewBrowser
 from recaptcha import *
 
 
+NO_RECAPTCHA_URL = 'https://example.com'
 RECAPTCHA_V2_URL = 'https://2captcha.com/demo/recaptcha-v2'
 RECAPTCHA_V2_INVISIBLE_URL = 'https://2captcha.com/demo/recaptcha-v2-invisible'
 RECAPTCHA_V3_URL = 'https://2captcha.com/demo/recaptcha-v3'
@@ -50,6 +51,16 @@ def page(browser):
     page = browser.new_page()
     yield page
     page.close()
+
+
+def test_no_recaptcha_on_standard_page(page):
+    """Verify that find_recaptcha returns nothing on a clean page."""
+    page.goto(NO_RECAPTCHA_URL)
+    
+    # We expect find_recaptcha to return None or a falsy value
+    recaptcha = find_recaptcha(page)
+    
+    assert not recaptcha, f"Expected no reCAPTCHA on {NO_RECAPTCHA_URL}, but found: {recaptcha}"
 
 
 @pytest.mark.parametrize(

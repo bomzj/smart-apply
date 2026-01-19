@@ -4,6 +4,7 @@ from llm import ask_llm
 from page_parsers import extract_emails, extract_forms, html_to_plain_text
 from applicant import application_template
 from smolagents import tool
+from recaptcha import find_recaptcha, solve_recaptcha
 from result import safe_call
 from playwright.sync_api import Page, TimeoutError, expect
 from gmail import send_email_from_me
@@ -82,10 +83,25 @@ def job_or_contact_form(html_forms: list[str]) -> int | None:
 
 def apply_via_form(ctx, form_index: int, form_html: str) -> bool:
     page = ctx['page']
+    
     # TODO: expose required fields by submitting empty form
+    
     form_data = applicant_to_form(application_template, form_html)
+    
     # TODO: uncheck checkboxes to avoid unwanted subscriptions
+    
     fill_form(page, form_index, form_data)
+    
+    # Detect and solve ReCaptcha if present
+    recaptcha = find_recaptcha(page)
+    if recaptcha:
+        print(f"ReCaptcha detected on the form {page.url}, attempting to solve...")
+        solved = solve_recaptcha(recaptcha)
+        if not solved:
+            print(f"Failed to solve ReCaptcha on {page.url}.")
+            return False
+        print(f"ReCaptcha solved on {page.url}.")
+
     return submit_form(page, form_index)
     
 
