@@ -163,7 +163,7 @@ def fill_form(form: Locator, form_data: dict[str, str]):
         input_locator = form.locator(f'[name="{name}"]').first
 
         if input_locator.count() == 0:
-            raise ValueError(f"No element found for name='{name}' in form[{form_index}]")
+            raise ValueError(f"No element found for name='{name}' in the form.")
 
         tag = input_locator.evaluate("el => el.tagName.toLowerCase()")
 
