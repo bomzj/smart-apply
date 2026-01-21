@@ -4,10 +4,11 @@ from llm import ask_llm
 from page_parsers import extract_emails, extract_forms, html_to_plain_text, locator_to_html
 from applicant import application_template
 from smolagents import tool
-from recaptcha import find_recaptcha, solve_recaptcha
+from recaptcha import find_recaptcha_with_checkbox, solve_recaptcha, page_has_recaptcha, recaptcha_already_solved
 from result import safe_call
 from playwright.sync_api import Page, Locator, TimeoutError, expect
 from gmail import send_email_from_me
+from test_recaptcha import page
 
 
 type ApplyMethod = Literal['email', 'form']
@@ -93,19 +94,27 @@ def apply_via_form(ctx, form: Locator) -> bool:
     
     fill_form(form, form_data)
     
-    # Detect and solve ReCaptcha if present
-    recaptcha = find_recaptcha(form)
-    if recaptcha:
-        print(f"ReCaptcha detected on the form {page.url}, attempting to solve...")
-        solved = solve_recaptcha(recaptcha)
-        if not solved:
-            print(f"Failed to solve ReCaptcha on {page.url}.")
-            return False
-        print(f"ReCaptcha solved on {page.url}.")
+    # 1. Detect ReCaptcha
+    recaptcha_detected = page_has_recaptcha(page)
+    recaptcha = find_recaptcha_with_checkbox(form) if recaptcha_detected else None
 
+    if not recaptcha:
+        # If the form doesn't require a captcha, just submit and exit
+        return submit_form(form)
+
+    # 2. Proceed with solving
+    print(f"ReCaptcha detected on {page.url}, attempting to solve...")
+    solved = solve_recaptcha(recaptcha)
+
+    # 3. Early exit if solving fails
+    if not solved:
+        print(f"Failed to solve ReCaptcha on {page.url}.")
+        return False
+
+    print(f"ReCaptcha solved on {page.url}.")
     return submit_form(form)
-    
 
+    
 def applicant_to_form(applicant, form: Locator) -> dict[str, str]:
     """Maps applicant data to form fields based on form HTML snippet."""
     form_html = locator_to_html(form)

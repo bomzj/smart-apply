@@ -53,41 +53,45 @@ def page(browser):
     page.close()
 
 
-def test_no_recaptcha_on_standard_page(page: Page):
-    """Verify that find_recaptcha returns nothing on a clean page."""
-    page.goto(NO_RECAPTCHA_URL)
-    
-    # We expect find_recaptcha to return None or a falsy value
-    recaptcha = find_recaptcha(page.locator('body'))
-    
-    assert not recaptcha, f"Expected no reCAPTCHA on {NO_RECAPTCHA_URL}, but found: {recaptcha}"
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        (NO_RECAPTCHA_URL, False),
+        (RECAPTCHA_V2_URL, True),
+        (RECAPTCHA_V2_INVISIBLE_URL, True),
+        (RECAPTCHA_V3_URL, True),
+    ]
+)
+def test_page_has_recaptcha(page, url, expected):
+    page.goto(url)
+    detected = page_has_recaptcha(page)
+    assert detected is expected
 
+
+@pytest.mark.parametrize(
+    "url, checkbox_visible",
+    [
+        (RECAPTCHA_V2_URL, True),
+        (RECAPTCHA_V2_INVISIBLE_URL, False),
+        (RECAPTCHA_V3_URL, False),
+    ]
+)
+def test_find_recaptcha_with_checkbox(page: Page, url, checkbox_visible):
+    page.goto(url)
+    recaptcha = find_recaptcha_with_checkbox(page.locator('.g-recaptcha'))
+    assert bool(recaptcha) is checkbox_visible
+    
 
 @pytest.mark.parametrize(
     "url, expected",
     [
-        (RECAPTCHA_V2_URL, "reCaptcha v2 not found."),
-        (RECAPTCHA_V2_INVISIBLE_URL, "reCaptcha v2 invisible not found."),
-        (RECAPTCHA_V3_URL, "reCaptcha v3 not found.")
+        (RECAPTCHA_V2_URL, True),
+        # (RECAPTCHA_V2_INVISIBLE_URL, False),
+        # (RECAPTCHA_V3_URL, False),
     ]
 )
-def test_recaptcha_detection(page, url, expected):
+def test_solve_recaptcha(page: Page, url, expected):
     page.goto(url)
-    loc = page.locator('.g-recaptcha')
-    recaptcha = find_recaptcha(loc)
-    assert recaptcha, expected
-    
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        RECAPTCHA_V2_URL,
-        #RECAPTCHA_V2_INVISIBLE_URL,
-        #RECAPTCHA_V3_URL,
-    ]
-)
-def test_recaptcha_solver(page, url):
-    page.goto(url)
-    recaptcha = find_recaptcha(page)
+    recaptcha = find_recaptcha_with_checkbox(page.locator('.g-recaptcha'))
     solved = solve_recaptcha(recaptcha)
-    assert solved
+    assert solved is expected

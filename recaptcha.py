@@ -1,60 +1,67 @@
 from random import randint
-from playwright.sync_api import Page, Locator
+from playwright.sync_api import Page, Locator, TimeoutError, Error
 from playwright_utils import wait_until
 
 
-def find_recaptcha(container: Locator) -> Locator | None:
+def page_has_recaptcha(page: Page) -> bool:
+    """Detect if ReCaptcha is present on the page."""
     markers = ['grecaptcha', 'recaptcha/api.js', 'recaptcha__', 'g-recaptcha']
-    content = container.page.content()
-    has_recaptcha = any(m in content for m in markers)
+    content = page.content()
+    return any(m in content for m in markers)
 
-    if not has_recaptcha:
+
+def find_recaptcha_with_checkbox(container: Locator) -> Locator | None:
+    """Find visible ReCaptcha V2 in the given container.
+    Args:
+        container (Locator): The locator representing the container to search within(usually a form).
+    """
+    iframe = container.locator('iframe[src*="recaptcha"]')
+
+    try:
+        iframe.wait_for(state="visible", timeout=15000)
+        return iframe
+    except TimeoutError as e:
+        print('Could not find visible ReCaptcha within timeout.')
         return None
     
+
+def recaptcha_already_solved(recaptcha_iframe: Locator) -> bool:
     try:
-        response_input = container.locator('textarea[name="g-recaptcha-response"]')
-        response_input.wait_for(state="attached", timeout=10000)
+        recaptcha_response = (
+            recaptcha_iframe
+            .locator('..')
+            .locator('textarea[name="g-recaptcha-response"]')
+            .input_value()
+        )
+        return True if recaptcha_response else False
+    except Error as e:
+        raise RuntimeError('ReCaptcha detection failed.') from e
 
-        # Check if already solved
-        if response_input.input_value():
-            return None  # already solved
-        
-        return response_input
-    except:
-        return None
 
-
-def solve_recaptcha(recaptcha_response: Locator) -> bool:
-    page = recaptcha_response.page
-
+def solve_recaptcha(recaptcha_iframe: Locator) -> bool:
     # NOTE: As of now, only ReCaptcha V2(checkbox) is supported
     # For V3 or invisible V2 ReCaptcha validation is triggered by some action (form submit)
     # so we can't tell beforehand whether recaptcha solved or not.
     # V3 and invisible V2 need human-like behavior which is done by camoufox browser already.
     
-    # Behave like a human to pass invisible recaptcha
+    # Behave like a human to pass invisible recaptcha (V3 and V2)
     # w, h = (vp := page.viewport_size)["width"], vp["height"]
     # page.mouse.move(randint(0, w), randint(0, h))
 
     # We don't know whether we have visible or invisible recaptcha 
     # So try to wait for visible recaptcha to appear and then click the checkbox
-    iframe = recaptcha_response.locator('..').locator('iframe[src*="recaptcha"]')
+    
     try:
-        iframe.wait_for(state="attached")
-    except:
-        pass
-
-    if iframe.count():
-        # Where to click, checkbox is 27x27 px and offset 12px from left side of iframe
-        box = iframe.bounding_box()
-        click_x = box['x'] + 12 + 27 / 2 # center of checkbox
-        click_y = box['y'] + box['height'] / 2
         print(f'Clicking on ReCaptcha checkbox.')
-        page.mouse.click(click_x, click_y)
+        recaptcha_iframe.click(position={"x": 12 + 27 / 2, "y": 78 / 2})
+        print(f'Clicked on ReCaptcha checkbox.')
+    except TimeoutError as e:
+        print(f'Failed to click ReCaptcha within timeout.\n{e}')
+        return False
         
     try:
-        # Wait until recaptcha gets response
-        wait_until(lambda: recaptcha_response.input_value(), timeout=10000)
+        # Wait until recaptcha gets response asynchronously after click
+        wait_until(lambda: recaptcha_already_solved(recaptcha_iframe), timeout=15000)
         return True
     except:
         print('Failed to solve ReCaptcha within timeout.')
