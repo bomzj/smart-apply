@@ -50,18 +50,16 @@ def solve_cf_challenge(captcha: Locator,
 
     try:
         # Where to click, checkbox is 24x24 px and offset 16px from left side of iframe
-        box = captcha.bounding_box()
-        click_x = box['x'] + 16 + 24 / 2 # center of checkbox
-        click_y = box['y'] + box['height'] / 2
-
         print("Clicking on Cloudflare challenge checkbox...")
         match type:
             case 'interstitial':
                 with page.expect_event("load", timeout=30000):
-                    page.mouse.click(click_x, click_y)
+                    captcha.click(position={"x": 16 + 24 / 2, "y": 65 / 2})
+                    print("Clicked on Cloudflare challenge checkbox...")
 
             case 'turnstile':
-                page.mouse.click(click_x, click_y)
+                captcha.click(position={"x": 16 + 24 / 2, "y": 65 / 2})
+                print("Clicked on Cloudflare challenge checkbox...")
                 wait_for_network_idle(page, timeout=10000, idle_time=3000)
     except:
         print("No navigation after clicking challenge, continuing...")
