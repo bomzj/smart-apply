@@ -21,7 +21,6 @@ def find_recaptcha_with_checkbox(container: Locator) -> Locator | None:
         iframe.wait_for(state="visible", timeout=15000)
         return iframe
     except TimeoutError as e:
-        print('Could not find visible ReCaptcha within timeout.')
         return None
     
 
