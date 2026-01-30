@@ -41,7 +41,7 @@ def solve_recaptcha(recaptcha_iframe: Locator) -> bool:
     # NOTE: As of now, only ReCaptcha V2(checkbox) is supported
     # For V3 or invisible V2 ReCaptcha validation is triggered by some action (form submit)
     # so we can't tell beforehand whether recaptcha solved or not.
-    # V3 and invisible V2 need human-like behavior which is done by camoufox browser already.
+    # V3 and invisible V2 need human-like behavior (human-like mouse movement)
     
     # Behave like a human to pass invisible recaptcha (V3 and V2)
     # w, h = (vp := page.viewport_size)["width"], vp["height"]

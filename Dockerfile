@@ -1,16 +1,21 @@
 FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Set environment variables
+ENV UV_PROJECT_ENVIRONMENT=/usr/local
+
 WORKDIR /workspace
 
-# Copy requirements and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy configuration files
+COPY pyproject.toml uv.lock* ./
 
-# install Playwright browsers
-#RUN playwright install
+# Install dependencies
+RUN uv sync --frozen --no-install-project --no-dev
 
-# Install Camoufox stealth browser
-RUN camoufox fetch
+# Install Playwright chromium browser
+RUN playwright install chromium --with-deps
 
 # Set default command
 CMD ["bash"]

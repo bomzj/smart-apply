@@ -2,7 +2,6 @@ import tkinter
 import pytest
 from typing import Literal
 from playwright.sync_api import sync_playwright, Page
-from camoufox.sync_api import NewBrowser
 from recaptcha import *
 
 
@@ -33,22 +32,18 @@ def playwright_instance():
 def browser(playwright_instance, screen_resolution):
     """Create one shared browser instance for the entire test session"""
     width, height = screen_resolution
-    browser = NewBrowser(
-        playwright_instance,
+    browser = playwright_instance.chromium.launch(
         headless=False,
-        humanize=True,
-        window=(width, height),
-        # uncomment if you want cookies/profile persistence
-        # persistent_context=True,           
-        # user_data_dir="./browser_session_data"
+        args=[f"--window-size={width},{height}"]
     )
     yield browser
     browser.close()
 
 @pytest.fixture(scope="function")
-def page(browser):
+def page(browser, screen_resolution):
     "fresh page per test/function (most common and safe)"
-    page = browser.new_page()
+    width, height = screen_resolution
+    page = browser.new_page(viewport={"width": width, "height": height})
     yield page
     page.close()
 

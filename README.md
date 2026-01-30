@@ -1,40 +1,33 @@
+
 # Smart Apply
 
 Smart Apply is your AI assistant that automates the process of applying to jobs directly on company websites.
 
 It uses **LLM** to analyze websites, understand forms, and automatically:
-
 - Fill out job application forms
-
 - Send emails via Gmail API
-
-- Bypasses Cloudflare protection and the Google reCAPTCHA "I'm not a robot" checkbox  challenge.
+- Bypasses Cloudflare protection and the Google reCAPTCHA "I'm not a robot" checkbox challenge.
 
 ## Setup
 
 ### Option 1 - Without Docker (Recommended)
-  
-1. Ensure you have Python 3.12 installed. If not, download and install it from the [official Python website](https://www.python.org/).
 
-2. Install dependencies:
+**Warning:** running browser under docker is pretty slow
 
-```bash
-pip install -r requirements.txt
-```
+1. Ensure you have [uv](https://docs.astral.sh/uv/) installed.
 
-3. Install Camoufox stealth browser:
+2. Install dependencies and browser:
 
 ```bash
-camoufox fetch
+uv  sync
+uv  run  playwright  install  chromium
 ```
 
 ### Option 2 - With Docker
->  **NOTE**: Camoufox browser runs insanely slow(resource-heavy) in docker causing timeouts.
-I tried docker optimization: increasing shared memory(/shm) from default 64MB to 2GB and writing temp files(/tmp) to RAM. Nothing helped.
+
 ```bash
-docker compose build
+docker  compose  build
 ```
-> By the way Chromium is also sluggish in docker, but it more or less works, the other drawback it's detectable by anti-bot protections used on various websites.
 
 ### Setup Gmail API *(valid for both options)*
 
@@ -48,7 +41,6 @@ docker compose build
 
 5. Install the Google client library https://developers.google.com/gmail/api/quickstart/python#install_the_google_client_library
 
-
 ## Configuration
 
 1. Rename `.env.example` to `.env`.
@@ -60,7 +52,6 @@ docker compose build
 3. Fill in your personal information (name, email, etc.) used during applications.
 
 4.  *Optional* Configure Langfuse for LLM tracing/debugging.
-  
 
 ## How to use
 
@@ -71,9 +62,11 @@ docker compose build
 3. Smart Apply can run **either locally or with Docker** — choose one of the options below.
 
 ```bash
-python main.py
+uv  run  main.py
 ```
+
 Or
+
 ```bash
-docker compose up -d
+docker  compose  up  -d
 ```

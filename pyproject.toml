@@ -1,0 +1,21 @@
+[project]
+name = "smart-apply"
+version = "0.1.0"
+description = "AI-powered assistant to automatically apply for jobs"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "debugpy>=1.8.20",
+    "google-api-python-client>=2.188.0",
+    "google-auth>=2.48.0",
+    "google-auth-httplib2>=0.3.0",
+    "google-auth-oauthlib>=1.2.4",
+    "langfuse>=3.12.1",
+    "openai>=2.16.0",
+    "openinference-instrumentation-openai>=0.1.41",
+    "openinference-instrumentation-smolagents>=0.1.21",
+    "playwright>=1.58.0",
+    "pytest>=9.0.2",
+    "rich>=14.3.1",
+    "smolagents>=1.24.0",
+]

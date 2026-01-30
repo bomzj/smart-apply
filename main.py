@@ -4,7 +4,6 @@ import tkinter
 import logging
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, Page
-from camoufox.sync_api import NewBrowser
 
 from apply_methods import apply_on_page
 from page_parsers import extract_links_to_visit
@@ -125,14 +124,12 @@ submitted_forms = 0
 with Live(stats_panel(), auto_refresh=True) as live:
 
     pw = sync_playwright().start()
-    browser = NewBrowser(
-        pw, 
-        headless=False, 
-        humanize=True, 
-        window=(screen_width, screen_height),
-        # Allow cookies/session to persist to avoid repeated captcha challenges
-        persistent_context=True, 
-        user_data_dir="./browser_session_data"
+    browser = pw.chromium.launch_persistent_context(
+        user_data_dir="./browser_session_data",
+        headless=False,
+        viewport={"width": screen_width, "height": screen_height},
+        screen={"width": screen_width, "height": screen_height},
+        args=[f"--window-size={screen_width},{screen_height}"]
     )
 
     failed_urls_log = logger('failed_urls', 'failed_urls.log')
