@@ -127,9 +127,9 @@ with Live(stats_panel(), auto_refresh=True) as live:
     browser = pw.chromium.launch_persistent_context(
         user_data_dir="./browser_session_data",
         headless=False,
-        viewport={"width": screen_width, "height": screen_height},
-        screen={"width": screen_width, "height": screen_height},
-        args=[f"--window-size={screen_width},{screen_height}"]
+        args=['--start-maximized'], # Maximize window
+        no_viewport=True, # also required for --start-maximized
+        slow_mo=50
     )
 
     failed_urls_log = logger('failed_urls', 'failed_urls.log')
