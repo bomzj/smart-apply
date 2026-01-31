@@ -128,7 +128,7 @@ with Live(stats_panel(), auto_refresh=True) as live:
         user_data_dir="./browser_session_data",
         headless=False,
         args=['--start-maximized'], # Maximize window
-        no_viewport=True, # also required for --start-maximized
+        no_viewport=True, # also required for maximized window
         slow_mo=50
     )
 

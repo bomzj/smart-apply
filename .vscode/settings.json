@@ -1,4 +1,5 @@
 {
+  "terminal.integrated.shellIntegration.enabled": true,
   "python.testing.pytestArgs": [
     "."
   ],
