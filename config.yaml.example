@@ -15,4 +15,4 @@ applicant:
   name: "Your Name"
   email: "your.email@example.com"
   subject: "Job Subject"
-  pdf: "your-resume.pdf"
+  pdf: "data/your-resume.pdf"

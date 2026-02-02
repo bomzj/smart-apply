@@ -96,8 +96,6 @@ def logger(name: str, path: str, fmt: str = '%(message)s') -> logging.Logger:
 
 ## Main
 
-apply_via_email(None, "maksim.shamihulau@gmail.com")
-
 PROJECT_ROOT = Path(__file__).parent.parent
 URLS_FILE = PROJECT_ROOT / 'data' / 'urls.txt'
 LOGS_DIR = PROJECT_ROOT / 'logs'
