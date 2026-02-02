@@ -19,14 +19,14 @@ It uses **LLM** to analyze websites, understand forms, and automatically:
 2. Install dependencies and browser:
 
 ```bash
-uv  sync
-uv  run  playwright  install  chromium
+uv sync
+uv run playwright install chromium
 ```
 
 ### Option 2 - With Docker
 
 ```bash
-docker  compose  build
+docker compose build
 ```
 
 ### Setup Gmail API *(valid for both options)*
@@ -41,11 +41,16 @@ docker  compose  build
 
 5. Install the Google client library https://developers.google.com/gmail/api/quickstart/python#install_the_google_client_library
 
+*NOTE:* to renew expired gmail auth token run the following command:
+```bash
+uv run src/gmail.py
+```
+
 ## Configuration
 
-1. Rename `.env.example` to `.env`.
+1. Rename `config.yaml.example` to `config.yaml`.
 
-2. Configure Azure OpenAI section.
+2. Configure `azure_openai` section.
 
 >  **NOTE**: Smart Apply uses Azure OpenAI by default, but you can switch to any LLM.
 
@@ -62,11 +67,11 @@ docker  compose  build
 3. Smart Apply can run **either locally or with Docker** — choose one of the options below.
 
 ```bash
-uv  run  main.py
+uv run src/main.py
 ```
 
 Or
 
 ```bash
-docker  compose  up  -d
+docker compose up -d
 ```

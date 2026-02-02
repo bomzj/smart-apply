@@ -14,14 +14,19 @@ from google.oauth2.credentials import Credentials
 # Gmail API scopes, we need to send emails only
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
+# Secrets are relative to project root
+SECRETS_DIR = "secrets"
+TOKEN_PATH = os.path.join(SECRETS_DIR, 'token.json')
+CREDS_PATH = os.path.join(SECRETS_DIR, 'credentials.json')
+
 def auth():
     """Authenticate with Gmail API and return credentials"""
     creds = None
     
     # Check if token.json exists with stored credentials
-    if os.path.exists('token.json'):
+    if os.path.exists(TOKEN_PATH):
         creds = Credentials.from_authorized_user_info(
-            json.loads(open('token.json').read())
+            json.loads(open(TOKEN_PATH).read())
         )
     
     # If credentials don't exist or are invalid, get new ones
@@ -30,11 +35,11 @@ def auth():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
+                CREDS_PATH, SCOPES)
             creds = flow.run_local_server(port=0)
         
         # Save credentials for next run
-        with open('token.json', 'w') as token:
+        with open(TOKEN_PATH, 'w') as token:
             token.write(creds.to_json())
     
     return creds
@@ -146,8 +151,8 @@ def send_email_from_me(to, subject, body, attachments=None):
 # To renew token.json only (no email sent)
 if __name__ == '__main__':
     # Delete token.json if it exists to force fresh authentication
-    if os.path.exists('token.json'):
-        os.remove('token.json')
+    if os.path.exists(TOKEN_PATH):
+        os.remove(TOKEN_PATH)
         print("Deleted existing token.json to force re-authentication.")
         
     creds = auth()

@@ -1,0 +1,18 @@
+langfuse:
+  enabled: false
+  public_key: "your-public-key-here"
+  secret_key: "your-secret-key-here"
+  host: "https://cloud.langfuse.com"
+
+azure_openai:
+  model_fast: "gpt-5-nano"
+  model_smart: "gpt-5-mini"
+  endpoint: "https://your-endpoint.cognitiveservices.azure.com/"
+  api_key: "your-api-key-here"
+  api_version: "2024-12-01-preview"
+
+applicant:
+  name: "Your Name"
+  email: "your.email@example.com"
+  subject: "Job Subject"
+  pdf: "your-resume.pdf"

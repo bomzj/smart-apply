@@ -1,19 +1,18 @@
 import json
-import time
-import tkinter
 import logging
+from pathlib import Path
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, Page
 
-from apply_methods import apply_on_page
+from apply_methods import apply_on_page, apply_via_email
 from page_parsers import extract_links_to_visit
 
 # Rich imports for fixed stats display
 from rich.live import Live
 from rich.panel import Panel
 
-from cloudflare_challenge import find_cf_challenge, solve_cf_challenge
 from result import safe_call
+from captcha_solvers.cloudflare_challenge import find_cf_challenge, solve_cf_challenge
 
 
 def hostname(url: str) -> str | None:
@@ -97,7 +96,14 @@ def logger(name: str, path: str, fmt: str = '%(message)s') -> logging.Logger:
 
 ## Main
 
-with open('urls.txt', 'r') as f:
+apply_via_email(None, "maksim.shamihulau@gmail.com")
+
+PROJECT_ROOT = Path(__file__).parent.parent
+URLS_FILE = PROJECT_ROOT / 'data' / 'urls.txt'
+LOGS_DIR = PROJECT_ROOT / 'logs'
+BROWSER_DATA_DIR = PROJECT_ROOT / '.browser_session_data'
+
+with open(URLS_FILE, 'r') as f:
     urls = [line.strip() for line in f if line.strip()]
 
 if urls:
@@ -105,12 +111,6 @@ if urls:
 else:
     print("No URLs found in urls.txt. Exiting.")
     exit(0)
-
-# Get the actual screen resolution dynamically
-root = tkinter.Tk()
-screen_width = root.winfo_screenwidth()
-screen_height = root.winfo_screenheight()
-root.destroy()
 
 print('Launching browser...')
 
@@ -125,14 +125,14 @@ with Live(stats_panel(), auto_refresh=True) as live:
 
     pw = sync_playwright().start()
     browser = pw.chromium.launch_persistent_context(
-        user_data_dir="./browser_session_data",
+        user_data_dir=str(BROWSER_DATA_DIR),
         headless=False,
         args=['--start-maximized'], # Maximize window
         no_viewport=True, # also required for maximized window
         slow_mo=50
     )
 
-    failed_urls_log = logger('failed_urls', 'failed_urls.log')
+    failed_urls_log = logger('failed_urls', str(LOGS_DIR / 'failed_urls.log'))
 
     for url in urls:
         print(f"Processing website: {url}")

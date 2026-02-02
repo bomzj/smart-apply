@@ -4,11 +4,10 @@ from llm import ask_llm
 from page_parsers import extract_emails, extract_forms, html_to_plain_text, locator_to_html
 from applicant import application_template
 from smolagents import tool
-from recaptcha import find_recaptcha_with_checkbox, solve_recaptcha, page_has_recaptcha, recaptcha_already_solved
+from captcha_solvers.recaptcha import find_recaptcha_with_checkbox, solve_recaptcha, page_has_recaptcha, recaptcha_already_solved
 from result import safe_call
 from playwright.sync_api import Page, Locator, TimeoutError, expect
 from gmail import send_email_from_me
-from test_recaptcha import page
 
 
 type ApplyMethod = Literal['email', 'form']

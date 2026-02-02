@@ -1,11 +1,11 @@
 *.pyc
-token.json
-credentials.json
+/secrets
 *.pdf
 .env
+config.yaml
 urls.txt
 .pytest_cache
 __pycache__
 applicant_message.txt
-/browser_session_data
+/.browser_session_data
 *.log

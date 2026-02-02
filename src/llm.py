@@ -3,12 +3,9 @@ from openai import AzureOpenAI
 from smolagents import tool, CodeAgent, AzureOpenAIServerModel
 from openinference.instrumentation.smolagents import SmolagentsInstrumentor
 from langfuse import Langfuse, get_client, observe
-from os import getenv
-from dotenv import load_dotenv
+from config import settings
 
-load_dotenv()
-
-LANGFUSE_ENABLED = getenv("LANGFUSE_ENABLED").lower() == "true"
+LANGFUSE_ENABLED = settings.langfuse_enabled
 
 # Models costs per 1M tokens input/output:
 # gpt 5: 1.25/10
@@ -26,13 +23,13 @@ type Model = Literal["fast", "smart"]
 
 @apply_if(observe, LANGFUSE_ENABLED)
 def ask_llm(message: str, model: Model = "fast") -> str:
-    model = getenv("AZURE_OPENAI_MODEL_" + model.upper())
+    model_id = settings.azure_openai_model_fast if model == "fast" else settings.azure_openai_model_smart
     response = llm.chat.completions.create(
         messages=[
             { "role": "system", "content": "Do not include any reasoning in your response." },
             { "role": "user", "content": message }
         ],
-        model=model
+        model=model_id
     )
 
     return response.choices[0].message.content
@@ -40,9 +37,9 @@ def ask_llm(message: str, model: Model = "fast") -> str:
 # Configure telemetry to debug model behavior and monitor usage
 if LANGFUSE_ENABLED:
     langfuse = Langfuse(
-        public_key=getenv("LANGFUSE_PUBLIC_KEY"),
-        secret_key=getenv("LANGFUSE_SECRET_KEY"),
-        host=getenv("LANGFUSE_HOST")
+        public_key=settings.langfuse_public_key,
+        secret_key=settings.langfuse_secret_key,
+        host=settings.langfuse_host
     )
 
     langfuse = get_client()
@@ -58,10 +55,10 @@ if LANGFUSE_ENABLED:
 
 
 model = AzureOpenAIServerModel(
-      model_id=getenv("AZURE_OPENAI_MODEL_FAST"),
-      azure_endpoint=getenv("AZURE_OPENAI_ENDPOINT"),
-      api_key=getenv("AZURE_OPENAI_API_KEY"),
-      api_version=getenv("OPENAI_API_VERSION")
+      model_id=settings.azure_openai_model_fast,
+      azure_endpoint=settings.azure_openai_endpoint,
+      api_key=settings.azure_openai_api_key,
+      api_version=settings.azure_openai_api_version
 )
 
 llm = model.create_client()
