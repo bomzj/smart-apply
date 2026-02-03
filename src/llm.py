@@ -2,7 +2,7 @@ from typing import Literal
 from openai import AzureOpenAI
 from smolagents import tool, CodeAgent, AzureOpenAIServerModel
 from openinference.instrumentation.smolagents import SmolagentsInstrumentor
-from langfuse import Langfuse, get_client, observe
+#from langfuse import Langfuse, get_client, observe
 from config import settings
 
 LANGFUSE_ENABLED = settings.langfuse_enabled
@@ -21,7 +21,7 @@ def apply_if(decorator, condition):
 # Available models
 type Model = Literal["fast", "smart"]
 
-@apply_if(observe, LANGFUSE_ENABLED)
+#@apply_if(observe, LANGFUSE_ENABLED)
 def ask_llm(message: str, model: Model = "fast") -> str:
     model_id = settings.azure_openai_model_fast if model == "fast" else settings.azure_openai_model_smart
     response = llm.chat.completions.create(
@@ -35,23 +35,23 @@ def ask_llm(message: str, model: Model = "fast") -> str:
     return response.choices[0].message.content
 
 # Configure telemetry to debug model behavior and monitor usage
-if LANGFUSE_ENABLED:
-    langfuse = Langfuse(
-        public_key=settings.langfuse_public_key,
-        secret_key=settings.langfuse_secret_key,
-        host=settings.langfuse_host
-    )
+# if LANGFUSE_ENABLED:
+#     langfuse = Langfuse(
+#         public_key=settings.langfuse_public_key,
+#         secret_key=settings.langfuse_secret_key,
+#         host=settings.langfuse_host
+#     )
 
-    langfuse = get_client()
+#     langfuse = get_client()
 
-    # Verify connection
-    if langfuse.auth_check():
-        print("Langfuse client is authenticated and ready!")
-    else:
-        print("Authentication failed. Please check your credentials and host.")
+#     # Verify connection
+#     if langfuse.auth_check():
+#         print("Langfuse client is authenticated and ready!")
+#     else:
+#         print("Authentication failed. Please check your credentials and host.")
 
-    # for langfuse to work with smolagents and azure open ai
-    SmolagentsInstrumentor().instrument()
+#     # for langfuse to work with smolagents and azure open ai
+#     SmolagentsInstrumentor().instrument()
 
 
 model = AzureOpenAIServerModel(
