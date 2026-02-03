@@ -1,16 +1,56 @@
 import json
 from typing import Literal
+from urllib.parse import urlparse
 from llm import ask_llm
-from page_parsers import extract_emails, extract_forms, html_to_plain_text, locator_to_html
+from page_parsers import extract_emails, extract_forms, extract_links_to_visit, html_to_plain_text, locator_to_html
 from applicant import application_template
 from smolagents import tool
-from captcha_solvers.recaptcha import find_recaptcha_with_checkbox, solve_recaptcha, page_has_recaptcha, recaptcha_already_solved
 from result import safe_call
 from playwright.sync_api import Page, Locator, TimeoutError, expect
 from gmail import send_email_from_me
+from captcha_solvers.recaptcha import *
+from captcha_solvers.cloudflare_challenge import *
 
 
 type ApplyMethod = Literal['email', 'form']
+
+def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
+    page = ctx['page']
+    host = hostname(start_url)
+
+    start_url = ensure_https(start_url)
+    page.goto(start_url)
+    
+    # Detect and solve Cloudflare interstitial challenge if present
+    cf_detected = find_cf_challenge(page)
+    if cf_detected:
+        captcha_locator, _ = cf_detected
+        print(f"Cloudflare interstitial challenge detected on {host}, attempting to solve...")
+        solved = solve_cf_challenge(captcha_locator)
+    
+    if cf_detected and solved:
+        print(f"Successfully solved Cloudflare challenge on {host}.")
+    elif cf_detected and not solved:
+        print(f"Failed to solve Cloudflare challenge on {host}. Skipping this site.\n")
+        return None
+
+    # Extract page links related to jobs and contact info
+    links = extract_links_to_visit(page)
+    if links:
+        formatted_links = json.dumps(links, indent=2, ensure_ascii=False)
+        print(f"Extracted links for {host}:\n{formatted_links}\n")
+    else:
+        print(f"No links found on the page at {host}.\n")
+    
+    for link in links[:5]:  # Limit to first 5 links to avoid excessive navigation
+        print(f"Visiting page: {link}")
+        page.goto(link)
+        applied = apply_on_page(ctx)
+        if applied: 
+            return applied
+
+    return None
+
 
 def apply_on_page(ctx) -> ApplyMethod | None:
     '''Try to apply to job by sending email or submitting form'''
@@ -291,3 +331,12 @@ def active_page(page: Page) -> Page:
         """
         return page
     return current_page
+
+
+# Url utilities
+def hostname(url: str) -> str | None:
+    return urlparse(url.strip() if '://' in url else f'https://{url.strip()}').hostname
+
+
+def ensure_https(url: str) -> str:
+    return url if url.startswith(('http://', 'https://')) else f'https://{hostname(url)}'

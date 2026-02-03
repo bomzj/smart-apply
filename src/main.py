@@ -1,64 +1,13 @@
-import json
 import logging
 from pathlib import Path
-from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, Page
 
-from apply_methods import apply_on_page, ApplyMethod
-from page_parsers import extract_links_to_visit
+from result import safe_call
+from apply_methods import apply_on_site, ApplyMethod, hostname
 
 # Rich imports for fixed stats display
 from rich.live import Live
 from rich.panel import Panel
-
-from result import safe_call
-from captcha_solvers.cloudflare_challenge import find_cf_challenge, solve_cf_challenge
-
-
-def hostname(url: str) -> str | None:
-    return urlparse(url.strip() if '://' in url else f'https://{url.strip()}').hostname
-
-
-def ensure_https(url: str) -> str:
-    return url if url.startswith(('http://', 'https://')) else f'https://{hostname(url)}'
-
-
-def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
-    page = ctx['page']
-    host = hostname(start_url)
-
-    start_url = ensure_https(start_url)
-    page.goto(start_url)
-    
-    # Detect and solve Cloudflare interstitial challenge if present
-    cf_detected = find_cf_challenge(page)
-    if cf_detected:
-        captcha_locator, _ = cf_detected
-        print(f"Cloudflare interstitial challenge detected on {host}, attempting to solve...")
-        solved = solve_cf_challenge(captcha_locator)
-    
-    if cf_detected and solved:
-        print(f"Successfully solved Cloudflare challenge on {host}.")
-    elif cf_detected and not solved:
-        print(f"Failed to solve Cloudflare challenge on {host}. Skipping this site.\n")
-        return False
-
-    # Extract page links related to jobs and contact info
-    links = extract_links_to_visit(page)
-    if links:
-        formatted_links = json.dumps(links, indent=2, ensure_ascii=False)
-        print(f"Extracted links for {host}:\n{formatted_links}\n")
-    else:
-        print(f"No links found on the page at {host}.\n")
-    
-    for link in links[:5]:  # Limit to first 5 links to avoid excessive navigation
-        print(f"Visiting page: {link}")
-        page.goto(link)
-        applied = apply_on_page(ctx)
-        if applied: 
-            return applied
-
-    return None
 
 
 def stats_panel():
