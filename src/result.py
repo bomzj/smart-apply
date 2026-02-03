@@ -109,3 +109,12 @@ def safe_call(fn, *args, log_exception=True, **kwargs):
         if log_exception:
             logging.error("Exception in %s:\n%s", fn.__name__, tb)
         return None, e
+
+async def safe_call_async(fn, *args, log_exception=True, **kwargs):
+    try:
+        return await fn(*args, **kwargs), None
+    except Exception as e:
+        tb = traceback.format_exc()
+        if log_exception:
+            logging.error("Exception in %s:\n%s", fn.__name__, tb)
+        return None, e

@@ -1,9 +1,11 @@
 import logging
+import asyncio
+import traceback
 from pathlib import Path
-from playwright.sync_api import sync_playwright, Page
+from playwright.async_api import async_playwright, Page
 
 from result import safe_call
-from apply_methods import apply_on_site, ApplyMethod, hostname
+from apply_methods import apply_on_site, ApplyMethod, hostname, safe_call_async
 
 # Rich imports for fixed stats display
 from rich.live import Live
@@ -53,55 +55,62 @@ else:
 
 print('Launching browser...')
 
-# Global Counters
+ # Counters
 total_sites = len(urls)
 processed_sites = 0
 sent_emails = 0
 submitted_forms = 0
 
-# Start the live stats display (wraps all processing)
-with Live(stats_panel(), auto_refresh=True) as live:
-
-    pw = sync_playwright().start()
-    browser = pw.chromium.launch_persistent_context(
-        user_data_dir=str(BROWSER_DATA_DIR),
-        headless=False,
-        args=['--start-maximized'], # Maximize window
-        no_viewport=True, # also required for maximized window
-        slow_mo=50
-    )
-
-    failed_urls_log = logger('failed_urls', str(LOGS_DIR / 'failed_urls.log'))
-
-    for url in urls:
-        print(f"Processing website: {url}")
-        
-        # Create a new page for each website to ensure a clean state
-        page = browser.new_page()
-        ctx = {'page': page}
-        
-        host = hostname(url)
-        applied, err = safe_call(apply_on_site, ctx, url)
-        
-        # Update counters based on application type
-        match applied:
-            case 'email':
-                sent_emails += 1
-            case 'form':
-                submitted_forms += 1
-            case _:
-                print(f"No email or form application were found on website {host}.\n")
-                failed_urls_log.info(url)
-
-        if err:
-            print(f"Failed to apply on website: {host} \n{err}\n")
+async def main():
+    global processed_sites, sent_emails, submitted_forms
     
-        processed_sites += 1
-        print(f"Finished processing website: {host}\n")
-        live.update(stats_panel())
-        page.close()
+    # Start the live stats display (wraps all processing)
+    with Live(stats_panel(), auto_refresh=True) as live:
 
-    browser.close()
-    pw.stop()
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch_persistent_context(
+                user_data_dir=str(BROWSER_DATA_DIR),
+                headless=False,
+                args=['--start-maximized'], # Maximize window
+                no_viewport=True, # also required for maximized window
+                slow_mo=50
+            )
+
+            failed_urls_log = logger('failed_urls', str(LOGS_DIR / 'failed_urls.log'))
+
+            for url in urls:
+                print(f"Processing website: {url}")
+                
+                # Create a new page for each website to ensure a clean state
+                page = await browser.new_page()
+                ctx = {'page': page}
+                
+                host = hostname(url)
+                # apply_on_site is async now
+                applied, err = await safe_call_async(apply_on_site, ctx, url)
+                
+                # Update counters based on application type
+                match applied:
+                    case 'email':
+                        sent_emails += 1
+                    case 'form':
+                        submitted_forms += 1
+                    case _:
+                        print(f"No email or form application were found on website {host}.\n")
+                        failed_urls_log.info(url)
+
+                if err:
+                    print(f"Failed to apply on website: {host} \n{err}\n")
+            
+                processed_sites += 1
+                print(f"Finished processing website: {host}\n")
+                live.update(stats_panel())
+                await page.close()
+
+            await browser.close()
+            # pw.stop() is automatic with context manager
 
     print("All websites have been processed.\n")
+
+if __name__ == "__main__":
+    asyncio.run(main())

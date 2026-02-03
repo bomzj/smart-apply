@@ -1,7 +1,7 @@
-import tkinter
 import pytest
 from typing import Literal
-from playwright.sync_api import sync_playwright, Page
+from playwright.async_api import async_playwright, Page
+import pytest_asyncio
 from recaptcha import *
 
 
@@ -10,44 +10,36 @@ RECAPTCHA_V2_URL = 'https://2captcha.com/demo/recaptcha-v2'
 RECAPTCHA_V2_INVISIBLE_URL = 'https://2captcha.com/demo/recaptcha-v2-invisible'
 RECAPTCHA_V3_URL = 'https://2captcha.com/demo/recaptcha-v3'
 
-@pytest.fixture(scope="session")
-def screen_resolution():
-    """Get screen resolution once per test session"""
-    root = tkinter.Tk()
-    width = root.winfo_screenwidth()
-    height = root.winfo_screenheight()
-    root.destroy()
-    return width, height
 
-
-@pytest.fixture(scope="session")
-def playwright_instance():
+@pytest_asyncio.fixture(loop_scope="session")
+async def playwright_instance():
     """Start Playwright once per session"""
-    pw = sync_playwright().start()
-    yield pw
-    pw.stop()
+    async with async_playwright() as pw:
+        yield pw
 
 
-@pytest.fixture(scope="session")
-def browser(playwright_instance, screen_resolution):
+@pytest_asyncio.fixture(loop_scope="session")
+async def browser(playwright_instance):
     """Create one shared browser instance for the entire test session"""
-    width, height = screen_resolution
-    browser = playwright_instance.chromium.launch(
+    browser = await playwright_instance.chromium.launch_persistent_context(
+        user_data_dir=str('../../.browser_session_data'),
         headless=False,
-        args=[f"--window-size={width},{height}"]
+        args=['--start-maximized'], # Maximize window
+        no_viewport=True, # also required for maximized window
+        slow_mo=50
     )
     yield browser
-    browser.close()
+    await browser.close()
 
-@pytest.fixture(scope="function")
-def page(browser, screen_resolution):
+@pytest_asyncio.fixture(loop_scope="session")
+async def page(browser):
     "fresh page per test/function (most common and safe)"
-    width, height = screen_resolution
-    page = browser.new_page(viewport={"width": width, "height": height})
+    page = await browser.new_page()
     yield page
-    page.close()
+    await page.close()
 
 
+@pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "url, expected",
     [
@@ -57,12 +49,13 @@ def page(browser, screen_resolution):
         (RECAPTCHA_V3_URL, True),
     ]
 )
-def test_page_has_recaptcha(page, url, expected):
-    page.goto(url)
-    detected = page_has_recaptcha(page)
+async def test_page_has_recaptcha(page, url, expected):
+    await page.goto(url)
+    detected = await page_has_recaptcha(page)
     assert detected is expected
 
 
+@pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "url, checkbox_visible",
     [
@@ -71,12 +64,13 @@ def test_page_has_recaptcha(page, url, expected):
         (RECAPTCHA_V3_URL, False),
     ]
 )
-def test_find_recaptcha_with_checkbox(page: Page, url, checkbox_visible):
-    page.goto(url)
+async def test_find_recaptcha_with_checkbox(page: Page, url, checkbox_visible):
+    await page.goto(url)
     recaptcha = find_recaptcha_with_checkbox(page.locator('.g-recaptcha'))
     assert bool(recaptcha) is checkbox_visible
     
 
+@pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "url, expected",
     [
@@ -85,8 +79,8 @@ def test_find_recaptcha_with_checkbox(page: Page, url, checkbox_visible):
         # (RECAPTCHA_V3_URL, False),
     ]
 )
-def test_solve_recaptcha(page: Page, url, expected):
-    page.goto(url)
+async def test_solve_recaptcha(page: Page, url, expected):
+    await page.goto(url)
     recaptcha = find_recaptcha_with_checkbox(page.locator('.g-recaptcha'))
-    solved = solve_recaptcha(recaptcha)
+    solved = await solve_recaptcha(recaptcha)
     assert solved is expected

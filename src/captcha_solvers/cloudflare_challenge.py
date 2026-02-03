@@ -1,29 +1,29 @@
 from random import randint
 from typing import Literal
-from playwright.sync_api import Page, TimeoutError, Locator
+from playwright.async_api import Page, TimeoutError, Locator
 from playwright_utils import wait_for_network_idle
 
 type CaptchaType = Literal['interstitial', 'turnstile']
 
-def find_cf_challenge(page: Page) -> tuple[Locator, CaptchaType] | None:
+async def find_cf_challenge(page: Page) -> tuple[Locator, CaptchaType] | None:
     # Interstitial challenge indicator
-    interstitial = page.title() == "Just a moment..."
+    interstitial = await page.title() == "Just a moment..."
     
     # Turnstile indicator
-    turnstile = page.locator('.cf-turnstile').count()
+    turnstile = await page.locator('.cf-turnstile').count()
 
     if not (interstitial or turnstile):
         return None
 
     try:
         # Random move helps to trigger loading actual captcha checkbox
-        page.mouse.move(randint(0, 200), randint(0, 200))
+        await page.mouse.move(randint(0, 200), randint(0, 200))
         
         hidden = page.locator('input[name="cf-turnstile-response"]')
-        hidden.wait_for(state="attached", timeout=10000)
+        await hidden.wait_for(state="attached", timeout=10000)
 
         # Check if already solved
-        if hidden.input_value():
+        if await hidden.input_value():
             return None  # already solved
         
         # parent container of hidden input contains the captcha iframe
@@ -35,7 +35,7 @@ def find_cf_challenge(page: Page) -> tuple[Locator, CaptchaType] | None:
         return None
 
 
-def solve_cf_challenge(captcha: Locator, 
+async def solve_cf_challenge(captcha: Locator, 
                        type: CaptchaType = 'interstitial', 
                        attempts: int = 2) -> bool:
     page = captcha.page
@@ -43,7 +43,7 @@ def solve_cf_challenge(captcha: Locator,
     # TODO: track only relevant network requests
     # Wait until challenge is fully loaded and ready for interaction
     try:           
-        wait_for_network_idle(page, timeout=10000, idle_time=3000)
+        await wait_for_network_idle(page, timeout=10000, idle_time=3000)
     except:
         print("Timed out while waiting for Cloudflare challenge to be ready.")
         return False
@@ -53,18 +53,18 @@ def solve_cf_challenge(captcha: Locator,
         print("Clicking on Cloudflare challenge checkbox...")
         match type:
             case 'interstitial':
-                with page.expect_event("load", timeout=30000):
-                    captcha.click(position={"x": 16 + 24 / 2, "y": 65 / 2})
+                async with page.expect_event("load", timeout=30000):
+                    await captcha.click(position={"x": 16 + 24 / 2, "y": 65 / 2})
                     print("Clicked on Cloudflare challenge checkbox...")
 
             case 'turnstile':
-                captcha.click(position={"x": 16 + 24 / 2, "y": 65 / 2})
+                await captcha.click(position={"x": 16 + 24 / 2, "y": 65 / 2})
                 print("Clicked on Cloudflare challenge checkbox...")
-                wait_for_network_idle(page, timeout=10000, idle_time=3000)
+                await wait_for_network_idle(page, timeout=10000, idle_time=3000)
     except:
         print("No navigation after clicking challenge, continuing...")
 
-    cf = find_cf_challenge(page)
+    cf = await find_cf_challenge(page)
 
     if not cf:
         #print("Cloudflare challenge is solved.")
@@ -75,6 +75,6 @@ def solve_cf_challenge(captcha: Locator,
     # Retry solving the challenge
     attempts -= 1
     if attempts > 0:
-        return solve_cf_challenge(captcha, type, attempts)
+        return await solve_cf_challenge(captcha, type, attempts)
 
     return False

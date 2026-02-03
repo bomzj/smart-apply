@@ -5,8 +5,8 @@ from llm import ask_llm
 from page_parsers import extract_emails, extract_forms, extract_links_to_visit, html_to_plain_text, locator_to_html
 from applicant import application_template
 from smolagents import tool
-from result import safe_call
-from playwright.sync_api import Page, Locator, TimeoutError, expect
+from result import safe_call, safe_call_async
+from playwright.async_api import Page, Locator, TimeoutError, expect
 from gmail import send_email_from_me
 from captcha_solvers.recaptcha import *
 from captcha_solvers.cloudflare_challenge import *
@@ -14,19 +14,19 @@ from captcha_solvers.cloudflare_challenge import *
 
 type ApplyMethod = Literal['email', 'form']
 
-def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
+async def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
     page = ctx['page']
     host = hostname(start_url)
 
     start_url = ensure_https(start_url)
-    page.goto(start_url)
+    await page.goto(start_url)
     
     # Detect and solve Cloudflare interstitial challenge if present
-    cf_detected = find_cf_challenge(page)
+    cf_detected = await find_cf_challenge(page)
     if cf_detected:
         captcha_locator, _ = cf_detected
         print(f"Cloudflare interstitial challenge detected on {host}, attempting to solve...")
-        solved = solve_cf_challenge(captcha_locator)
+        solved = await solve_cf_challenge(captcha_locator)
     
     if cf_detected and solved:
         print(f"Successfully solved Cloudflare challenge on {host}.")
@@ -35,7 +35,7 @@ def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
         return None
 
     # Extract page links related to jobs and contact info
-    links = extract_links_to_visit(page)
+    links = await extract_links_to_visit(page)
     if links:
         formatted_links = json.dumps(links, indent=2, ensure_ascii=False)
         print(f"Extracted links for {host}:\n{formatted_links}\n")
@@ -44,21 +44,21 @@ def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
     
     for link in links[:5]:  # Limit to first 5 links to avoid excessive navigation
         print(f"Visiting page: {link}")
-        page.goto(link)
-        applied = apply_on_page(ctx)
+        await page.goto(link)
+        applied = await apply_on_page(ctx)
         if applied: 
             return applied
 
     return None
 
 
-def apply_on_page(ctx) -> ApplyMethod | None:
+async def apply_on_page(ctx) -> ApplyMethod | None:
     '''Try to apply to job by sending email or submitting form'''
 
     page = ctx['page']
 
     # Priority 1: apply via job email
-    job_emails, contact_emails = extract_emails(page)
+    job_emails, contact_emails = await extract_emails(page)
     
     if job_emails:
         addr = job_emails[0]
@@ -67,12 +67,12 @@ def apply_on_page(ctx) -> ApplyMethod | None:
         return 'email'
 
     # Priority 2: apply via form
-    form = job_or_contact_form(page)
+    form = await job_or_contact_form(page)
     
     if form:
         # preserve current url since form submission may redirect
         url = page.url
-        form_submitted, submit_err = safe_call(apply_via_form, ctx, form)
+        form_submitted, submit_err = await safe_call_async(apply_via_form, ctx, form)
         if form_submitted:
             print(f"Submitted form at {url}\n")
             return 'form'
@@ -91,8 +91,8 @@ def apply_on_page(ctx) -> ApplyMethod | None:
     return None
 
 
-def job_or_contact_form(page: Page) -> Locator:
-    html_forms = extract_forms(page)
+async def job_or_contact_form(page: Page) -> Locator:
+    html_forms = await extract_forms(page)
   
     task = f"""
         You will be given a list of HTML form elements as input, like this: ["<form>...</form>", "<form>...</form>", ...]. 
@@ -122,28 +122,28 @@ def job_or_contact_form(page: Page) -> Locator:
         return page.locator('form').nth(int(res))
 
 
-def apply_via_form(ctx, form: Locator) -> bool:
+async def apply_via_form(ctx, form: Locator) -> bool:
     page = ctx['page']
     
     # TODO: expose required fields by submitting empty form
     
-    form_data = applicant_to_form(application_template, form)
+    form_data = await applicant_to_form(application_template, form)
     
     # TODO: uncheck checkboxes to avoid unwanted subscriptions
     
-    fill_form(form, form_data)
+    await fill_form(form, form_data)
     
     # 1. Detect ReCaptcha
-    recaptcha_detected = page_has_recaptcha(page)
+    recaptcha_detected = await page_has_recaptcha(page)
     recaptcha = find_recaptcha_with_checkbox(form) if recaptcha_detected else None
 
     if not recaptcha:
         # If the form doesn't require a captcha, just submit and exit
-        return submit_form(form)
+        return await submit_form(form)
 
     # 2. Proceed with solving
     print(f"ReCaptcha detected on {page.url}, attempting to solve...")
-    solved = solve_recaptcha(recaptcha)
+    solved = await solve_recaptcha(recaptcha)
 
     # 3. Early exit if solving fails
     if not solved:
@@ -151,12 +151,12 @@ def apply_via_form(ctx, form: Locator) -> bool:
         return False
 
     print(f"ReCaptcha solved on {page.url}.")
-    return submit_form(form)
+    return await submit_form(form)
 
     
-def applicant_to_form(applicant, form: Locator) -> dict[str, str]:
+async def applicant_to_form(applicant, form: Locator) -> dict[str, str]:
     """Maps applicant data to form fields based on form HTML snippet."""
-    form_html = locator_to_html(form)
+    form_html = await locator_to_html(form)
 
     applicant_to_form_prompt = """
         You are an expert form-filling assistant. Map applicant data to a job/contact form from the provided HTML snippet, outputting a JSON object like { "input_name1": "value1", ... }, using exact 'name' attributes as keys and suitable string values.
@@ -204,72 +204,78 @@ def applicant_to_form(applicant, form: Locator) -> dict[str, str]:
     return form_data
 
 
-def fill_form(form: Locator, form_data: dict[str, str]):
+async def fill_form(form: Locator, form_data: dict[str, str]):
     """ Fills a specific form on the page with given form_data.  """
 
     for name, value in form_data.items():
         input_locator = form.locator(f'[name="{name}"]').first
 
-        if input_locator.count() == 0:
+        if await input_locator.count() == 0:
             raise ValueError(f"No element found for name='{name}' in the form.")
 
-        tag = input_locator.evaluate("el => el.tagName.toLowerCase()")
+        tag = await input_locator.evaluate("el => el.tagName.toLowerCase()")
 
         if tag == "input":
-            input_type = input_locator.evaluate("el => el.type")
+            input_type = await input_locator.evaluate("el => el.type")
             if input_type in ("checkbox", "radio"):
                 # For radios and checkbox groups, select the specific option by value
                 specific_locator = form.locator(f'[name="{name}"][value="{value}"]')
-                if specific_locator.count() > 0:
-                    specific_locator.check()
+                if await specific_locator.count() > 0:
+                    await specific_locator.check()
                 # Treat single checkbox differently
                 elif input_type == "checkbox":
                     # Handle boolean toggles (allows unchecking!)
                     should_check = str(value).lower() in ["true", "1", "yes", "on"]
-                    input_locator.set_checked(should_check)
+                    await input_locator.set_checked(should_check)
                 else:
                     # Raise error for radios so you don't accidentally select the wrong one
                     raise ValueError(f"Radio option '{value}' not found for name='{name}'")
             elif input_type == "file":
-                input_locator.set_input_files(value)
+                await input_locator.set_input_files(value)
             else:
-                input_locator.fill(str(value))
+                await input_locator.fill(str(value))
         elif tag == "textarea":
-            input_locator.fill(str(value))
+            await input_locator.fill(str(value))
         elif tag == "select":
-            input_locator.select_option(str(value))
+            await input_locator.select_option(str(value))
         else:
             raise ValueError(f"Unsupported element <{tag}> for name='{name}'")
     
 
-def submit_form(form: Locator) -> bool:
+async def submit_form(form: Locator) -> bool:
     # Capture handle to the correct form
-    form_handle = form.element_handle()
+    form_handle = await form.element_handle()
 
     # Submit the form and wait for potential form submission response
     try:
-        with form.page.expect_response(lambda res: res.request.method == "POST"):
-            form.locator('button[type="submit"], input[type="submit"]').first.click()
+        async with form.page.expect_response(lambda res: res.request.method == "POST"):
+            await form.locator('button[type="submit"], input[type="submit"]').first.click()
     except TimeoutError:
         print("No form submission response detected.")
         print("Checking for form submission success...")
     
     # Assume successful form submission hides the form, including redirects to thank you pages
     # if form is detached from DOM it will raise an error
-    visible, err = safe_call(lambda: form_handle.is_visible(), log_exception=False) 
+    visible, err = await safe_call_async(lambda: form_handle.is_visible(), log_exception=False) 
     if err or not visible:
         print(f"Form submission appears successful (form is no longer visible).")
         return True
 
     # Also assume successful submission when input fields are cleared
-    inputs = form.locator('input[type="text"], input[type="email"]').all()    
-    _, err = safe_call(lambda: [expect(inp).to_have_value("") for inp in inputs], log_exception=False)
+    inputs = await form.locator('input[type="text"], input[type="email"]').all()    
+    
+    async def check_cleared(inps):
+        for inp in inps:
+             await expect(inp).to_have_value("")
+
+    _, err = await safe_call_async(check_cleared, inputs, log_exception=False)
+
     if not err:
         print(f"Form submission appears successful (input fields cleared).")
         return True
 
     # As the last resort, prompt to verify submission success
-    page_text = html_to_plain_text(form.page.content())
+    page_text = html_to_plain_text(await form.page.content())
     submission_validation_prompt = """
         You are a validation assistant. You will be provided with the full text content (`innerText`) of a web page **after a form submission**. Your task is to determine if the form was successfully submitted.
 

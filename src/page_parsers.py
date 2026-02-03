@@ -3,30 +3,38 @@ import json
 from urllib.parse import urljoin
 from llm import ask_llm
 import re
-from playwright.sync_api import Page, Locator
+from playwright.async_api import Page, Locator
+import asyncio
+from result import safe_call, safe_call_async
 
-from result import safe_call
 
+async def infer_company_name(page: Page) -> str:
+    # locator.get_attribute is async
+    meta_site_name = None
+    try:
+        meta = page.locator('meta[property="og:site_name"]')
+        meta_site_name = await meta.get_attribute("content", timeout=1)  
+    except:
+        pass
 
-def infer_company_name(page: Page) -> str:
-    meta_site_name = safe_call(lambda: page
-      .locator('meta[property="og:site_name"]')
-      .get_attribute("content", timeout=1)
-    )
-    title = page.title()
+    title = await page.title()
     url = page.url
-    task = (
-        f"Given the website with title '{title}' and meta og:site_name '{meta_site_name}', " 
-        f"infer the company name for {url}."
-    )
+    parts = [
+        f"Given the website with title '{title}'",
+        meta_site_name and f"meta og:site_name '{meta_site_name}'",
+        f"url '{url}'",
+    ]
+
+    task = f"{', '.join(filter(None, parts))}. Infer the company name."
     return ask_llm(task)
 
 
-def extract_links_to_visit(page: Page) -> list[str]:
+async def extract_links_to_visit(page: Page) -> list[str]:
     ''' Extract links related to jobs and contact info pages'''
     
     url = page.url
-    links = page.locator("a").evaluate_all("elements => elements.map(el => el.href)")
+    # evaluate_all is async
+    links = await page.locator("a").evaluate_all("elements => elements.map(el => el.href)")
     if not links: return []
 
     task = (
@@ -88,10 +96,10 @@ def extract_links_to_visit(page: Page) -> list[str]:
     return full_urls
 
 
-def extract_emails(page: Page) -> tuple[list[str], list[str]]:
+async def extract_emails(page: Page) -> tuple[list[str], list[str]]:
     ''' Extract emails related to career and generic contacts'''
     url = page.url
-    content = page.content()
+    content = await page.content()
     html_text = html_to_plain_text(content)
     task = (
     f"Given the following text from {url}:\n\n"
@@ -118,16 +126,16 @@ def extract_emails(page: Page) -> tuple[list[str], list[str]]:
     return emails['job_emails'], emails['contact_emails']  
 
 
-def extract_forms(page: Page) -> list[str]:
+async def extract_forms(page: Page) -> list[str]:
     ''' Extract all forms on the current page as list of html snippets'''
-    forms = page.locator("form").evaluate_all("elements => elements.map(el => el.outerHTML)")
+    forms = await page.locator("form").evaluate_all("elements => elements.map(el => el.outerHTML)")
     # TODO: maybe we should scan iframes containing forms as well?
     #page.frames[0].eval_on_selector_all('form', 'els => els.map(el => el.outerHTML)')
     return forms
 
 
-def locator_to_html(loc: Locator) -> str:
-    return loc.evaluate("el => el.outerHTML")
+async def locator_to_html(loc: Locator) -> str:
+    return await loc.evaluate("el => el.outerHTML")
 
 
 def html_to_plain_text(html):
