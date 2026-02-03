@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, Page
 
-from apply_methods import apply_on_page, apply_via_email
+from apply_methods import apply_on_page, ApplyMethod
 from page_parsers import extract_links_to_visit
 
 # Rich imports for fixed stats display
@@ -23,7 +23,7 @@ def ensure_https(url: str) -> str:
     return url if url.startswith(('http://', 'https://')) else f'https://{hostname(url)}'
 
 
-def apply_on_site(ctx: dict, start_url: str):
+def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
     page = ctx['page']
     host = hostname(start_url)
 
@@ -50,23 +50,15 @@ def apply_on_site(ctx: dict, start_url: str):
         print(f"Extracted links for {host}:\n{formatted_links}\n")
     else:
         print(f"No links found on the page at {host}.\n")
-
-    # Shows whether application was submitted or scheduled successfully
-    applied = False
     
     for link in links[:5]:  # Limit to first 5 links to avoid excessive navigation
         print(f"Visiting page: {link}")
         page.goto(link)
         applied = apply_on_page(ctx)
-        global sent_emails, submitted_forms
-        sent_emails += 1 if applied == 'email' else 0
-        submitted_forms += 1 if applied == 'form' else 0
-        if applied: break
+        if applied: 
+            return applied
 
-    if not applied:
-        print(f"No email or form application were found on website {host}.\n")
-
-    return bool(applied)
+    return None
 
 
 def stats_panel():
@@ -142,8 +134,15 @@ with Live(stats_panel(), auto_refresh=True) as live:
         host = hostname(url)
         applied, err = safe_call(apply_on_site, ctx, url)
         
-        if not applied:
-            failed_urls_log.info(url)
+        # Update counters based on application type
+        match applied:
+            case 'email':
+                sent_emails += 1
+            case 'form':
+                submitted_forms += 1
+            case _:
+                print(f"No email or form application were found on website {host}.\n")
+                failed_urls_log.info(url)
 
         if err:
             print(f"Failed to apply on website: {host} \n{err}\n")
