@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 Smart Apply is an AI agent that automates job applications by navigating company websites, solving captchas, extracting contact details, and submitting forms or sending emails.
-- **Stack**: Python 3.12+, Playwright (Sync API), Azure OpenAI (LLM), Gmail API.
+- **Stack**: Python 3.14+, Playwright (Async API), Azure OpenAI (LLM), Gmail API.
 - **Dependency Manager**: `uv`.
 
 ## 2. Architecture & Data Flow
@@ -52,7 +52,6 @@ success, error = safe_call(lambda: page.click(".btn", timeout=1000))
 ```
 
 ### Playwright
-- Use **Sync API** (not Async).
 - Pass the `ctx` dictionary (containing `page` object) between functions to maintain browser state.
 
 ## 5. Coding Standards & Style
