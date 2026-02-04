@@ -53,7 +53,7 @@ async def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
 
 
 async def apply_on_page(ctx) -> ApplyMethod | None:
-    '''Try to apply to job by sending email or submitting form'''
+    '''Try to apply to job on the page by sending email or submitting form'''
 
     page = ctx['page']
 
