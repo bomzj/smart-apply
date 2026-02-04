@@ -5,15 +5,17 @@ from llm import ask_llm
 from page_parsers import extract_emails, extract_forms, extract_links_to_visit, html_to_plain_text, locator_to_html
 from applicant import application_template
 from smolagents import tool
-from result import safe_call, safe_call_async
+from result import Err, Ok, safe_call, safe_fn
 from playwright.async_api import Page, Locator, TimeoutError, expect
 from gmail import send_email_from_me
 from captcha_solvers.recaptcha import *
 from captcha_solvers.cloudflare_challenge import *
+from googleapiclient.errors import HttpError
 
 
 type ApplyMethod = Literal['email', 'form']
 
+@safe_fn
 async def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
     page = ctx['page']
     host = hostname(start_url)
@@ -48,6 +50,9 @@ async def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
         applied = await apply_on_page(ctx)
         if applied: 
             return applied
+        else:
+            print(f"No application method found on this page {page.url}.\n")
+
 
     return None
 
@@ -57,36 +62,25 @@ async def apply_on_page(ctx) -> ApplyMethod | None:
 
     page = ctx['page']
 
-    # Priority 1: apply via job email
     job_emails, contact_emails = await extract_emails(page)
     
+    # Priority 1: apply via job email
     if job_emails:
-        addr = job_emails[0]
-        apply_via_email(ctx, addr)
-        print(f"Sent email to {addr}\n")
+        apply_via_email(ctx, job_emails[0])
         return 'email'
 
     # Priority 2: apply via form
     form = await job_or_contact_form(page)
     
     if form:
-        # preserve current url since form submission may redirect
-        url = page.url
-        form_submitted, submit_err = await safe_call_async(apply_via_form, ctx, form)
-        if form_submitted:
-            print(f"Submitted form at {url}\n")
+        res = await apply_via_form(ctx, form)
+        if res.ok: 
             return 'form'
-        else:
-            print(f"Failed to submit form at {page.url}: {submit_err}\n")
 
     # Priority 3: fallback to generic contact email
     if contact_emails:
         apply_via_email(ctx, contact_emails[0])
-        print(f"Sent email to {contact_emails[0]}\n")
         return 'email'
-    
-    if not job_emails and not contact_emails and form is None:
-        print(f"No application method found on this page {page.url}.\n")
     
     return None
 
@@ -121,8 +115,8 @@ async def job_or_contact_form(page: Page) -> Locator:
     if res.isdigit():
         return page.locator('form').nth(int(res))
 
-
-async def apply_via_form(ctx, form: Locator) -> bool:
+@safe_fn
+async def apply_via_form(ctx, form: Locator):
     page = ctx['page']
     
     # TODO: expose required fields by submitting empty form
@@ -135,7 +129,7 @@ async def apply_via_form(ctx, form: Locator) -> bool:
     
     # 1. Detect ReCaptcha
     recaptcha_detected = await page_has_recaptcha(page)
-    recaptcha = find_recaptcha_with_checkbox(form) if recaptcha_detected else None
+    recaptcha = await find_recaptcha_with_checkbox(form) if recaptcha_detected else None
 
     if not recaptcha:
         # If the form doesn't require a captcha, just submit and exit
@@ -148,10 +142,22 @@ async def apply_via_form(ctx, form: Locator) -> bool:
     # 3. Early exit if solving fails
     if not solved:
         print(f"Failed to solve ReCaptcha on {page.url}.")
-        return False
+        return
 
     print(f"ReCaptcha solved on {page.url}.")
-    return await submit_form(form)
+
+    # preserve current url since form submission may redirect to different url
+    current_url = page.url
+
+    res = await submit_form(form)
+
+    if res.ok:
+        print(f"Submitted form at {current_url}\n")
+    else:
+        print(f"Failed to submit form at {current_url}\n")
+        return Err(ValueError(f"Failed to submit form at {current_url}\n{res.err}"))
+    
+    return Ok()
 
     
 async def applicant_to_form(applicant, form: Locator) -> dict[str, str]:
@@ -241,8 +247,8 @@ async def fill_form(form: Locator, form_data: dict[str, str]):
         else:
             raise ValueError(f"Unsupported element <{tag}> for name='{name}'")
     
-
-async def submit_form(form: Locator) -> bool:
+@safe_fn
+async def submit_form(form: Locator):
     # Capture handle to the correct form
     form_handle = await form.element_handle()
 
@@ -256,10 +262,10 @@ async def submit_form(form: Locator) -> bool:
     
     # Assume successful form submission hides the form, including redirects to thank you pages
     # if form is detached from DOM it will raise an error
-    visible, err = await safe_call_async(lambda: form_handle.is_visible(), log_exception=False) 
+    visible, err = await safe_call(lambda: form_handle.is_visible(), log_exception=False) 
     if err or not visible:
         print(f"Form submission appears successful (form is no longer visible).")
-        return True
+        return
 
     # Also assume successful submission when input fields are cleared
     inputs = await form.locator('input[type="text"], input[type="email"]').all()    
@@ -268,11 +274,11 @@ async def submit_form(form: Locator) -> bool:
         for inp in inps:
              await expect(inp).to_have_value("")
 
-    _, err = await safe_call_async(check_cleared, inputs, log_exception=False)
+    _, err = await safe_call(check_cleared, inputs, log_exception=False)
 
     if not err:
         print(f"Form submission appears successful (input fields cleared).")
-        return True
+        return
 
     # As the last resort, prompt to verify submission success
     page_text = html_to_plain_text(await form.page.content())
@@ -306,37 +312,13 @@ async def submit_form(form: Locator) -> bool:
     res = json.loads(res)
 
     if res.get("error"):
-        raise ValueError(f"Form submission validation error: {res['error']}")
-    
-    return True
+        raise ValueError(res['error'])
 
 
 def apply_via_email(ctx, email_to):
     app = application_template
-    send_email_from_me(email_to, 
-                    app['subject'], 
-                    app['message'], 
-                    [app['pdf_resume']])
-
-
-## Agent Tools
-
-def active_page(page: Page) -> Page:
-    @tool
-    def current_page() -> Page:
-        """
-        Retrieve the current active Playwright Page object.
-
-        This function allows the agent to access the currently active browser page.
-        The returned Page object can be used to navigate to URLs, interact with elements,
-        evaluate JavaScript, extract information, or perform any Playwright-supported
-        browser automation tasks.
-
-        Returns:
-            Page: The active Playwright Page instance.
-        """
-        return page
-    return current_page
+    send_email_from_me(email_to, app['subject'], app['message'], [app['pdf_resume']])
+    print(f"Sent email to {email_to}\n")
 
 
 # Url utilities

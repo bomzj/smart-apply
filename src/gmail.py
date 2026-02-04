@@ -4,7 +4,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 import mimetypes
-from googleapiclient.errors import HttpError
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -131,21 +130,10 @@ def send_email_from_me(to, subject, body, attachments=None):
 
     email = create_message(sender, to, subject, body, attachments)
     
-    try:
-        res = service.users().messages().send(
-            userId=sender, body=email).execute()
-        last_send_time = time.time()
-        return res
-    except HttpError as e:
-        # Log or handle the error
-        print(f"Error sending email: {e}")
-        if e.content:
-            error_json = json.loads(e.content.decode('utf-8'))
-            print(f"API error details: {error_json}")
-        # TODO: implement rate limit handling in calling code
-        print("Exitting due to potential Gmail API limit has reached.")
-        exit(0)
-        #raise # propagate exception for further handling
+    res = service.users().messages().send(
+        userId=sender, body=email).execute()
+    last_send_time = time.time()
+    return res
 
 
 # To renew token.json only (no email sent)

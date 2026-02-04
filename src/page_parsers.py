@@ -5,7 +5,7 @@ from llm import ask_llm
 import re
 from playwright.async_api import Page, Locator
 import asyncio
-from result import safe_call, safe_call_async
+from result import safe_call
 
 
 async def infer_company_name(page: Page) -> str:

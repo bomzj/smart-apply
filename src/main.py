@@ -1,10 +1,12 @@
+import json
 import logging
 import asyncio
 from pathlib import Path
-from playwright.async_api import async_playwright, Page
+from playwright.async_api import async_playwright
+from googleapiclient.errors import HttpError
 
-from result import safe_call
-from apply_methods import apply_on_site, ApplyMethod, hostname, safe_call_async
+from result import Err, Ok
+from apply_methods import apply_on_site, hostname
 
 # Rich imports for fixed stats display
 from rich.live import Live
@@ -58,22 +60,33 @@ async def main():
                 ctx = {'page': page}
                 
                 host = hostname(url)
-                # apply_on_site is async now
-                applied, err = await safe_call_async(apply_on_site, ctx, url)
+                res = await apply_on_site(ctx, url)
                 
-                # Update counters based on application type
-                match applied:
-                    case 'email':
-                        stats["sent_emails"] += 1
-                    case 'form':
-                        stats["submitted_forms"] += 1
-                    case _:
-                        failed_urls_log.info(url)
-
-                if err:
-                    print(f"Failed to apply on website: {host} \n{err}\n")
-                elif not applied:
-                    print(f"No email or form application were found on website {host}.\n")
+                match res:
+                    case Ok(method):
+                        match method:
+                            case 'email':
+                                stats["sent_emails"] += 1
+                            case 'form':
+                                stats["submitted_forms"] += 1
+                            case _:
+                                print(f"No email or form application were found on website {host}.\n")
+                                failed_urls_log.info(url)
+                    
+                    case Err(e):
+                        match e:
+                            # handle gmail 429 limit exceeded error specifically
+                            case HttpError() as e:
+                                print(f"Failed to apply on website: {host}\n{e}\n")
+                                print(f"Error sending email: {e}\n")
+                                if e.content:
+                                    error_json = json.loads(e.content.decode('utf-8'))
+                                    print(f"API error details: {error_json}")
+                                print("Exitting due to potential Gmail API limit has reached.")
+                                exit(0)
+                            case _:
+                                print(f"Failed to apply on website: {host}\n{e}\n")
+                                failed_urls_log.info(url)
             
                 stats["processed_sites"] += 1
                 print(f"Finished processing website: {host}\n")

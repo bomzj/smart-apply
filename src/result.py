@@ -1,7 +1,8 @@
 from functools import wraps
+import inspect
 import logging
 import traceback
-from typing import Callable, ParamSpec, TypeVar, Generic, Iterator, overload
+from typing import Callable, ParamSpec, TypeVar, Generic, Iterator, overload, Coroutine, Any
 
 P = ParamSpec('P')  # For preserving args/kwargs types
 T = TypeVar('T')
@@ -84,12 +85,28 @@ class Err(Result[T, E]):
 
 
 @overload
+def safe_fn(func: Callable[P, Coroutine[Any, Any, Result[T, E]]]) -> Callable[P, Coroutine[Any, Any, Result[T, E]]]: ...
+
+@overload
+def safe_fn(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[Any, Any, Result[T, Exception]]]: ...
+
+@overload
 def safe_fn(func: Callable[P, Result[T, E]]) -> Callable[P, Result[T, E]]: ...
 
 @overload
 def safe_fn(func: Callable[P, T]) -> Callable[P, Result[T, Exception]]: ...
 
 def safe_fn(func):
+    if inspect.iscoroutinefunction(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            try:
+                res = await func(*args, **kwargs)
+                return res if isinstance(res, Result) else Ok(res)
+            except BaseException as e:
+                return Err(e)
+        return async_wrapper
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -101,18 +118,26 @@ def safe_fn(func):
     return wrapper
 
 
+@overload
+def safe_call(fn: Callable[P, Coroutine[Any, Any, T]], *args: P.args, log_exception: bool = True, **kwargs: P.kwargs) -> Coroutine[Any, Any, tuple[T | None, Exception | None]]: ...
+
+@overload
+def safe_call(fn: Callable[P, T], *args: P.args, log_exception: bool = True, **kwargs: P.kwargs) -> tuple[T | None, Exception | None]: ...
+
 def safe_call(fn, *args, log_exception=True, **kwargs):
+    if inspect.iscoroutinefunction(fn):
+        async def async_wrapper():
+            try:
+                return await fn(*args, **kwargs), None
+            except Exception as e:
+                tb = traceback.format_exc()
+                if log_exception:
+                    logging.error("Exception in %s:\n%s", fn.__name__, tb)
+                return None, e
+        return async_wrapper()
+
     try:
         return fn(*args, **kwargs), None
-    except Exception as e:
-        tb = traceback.format_exc()
-        if log_exception:
-            logging.error("Exception in %s:\n%s", fn.__name__, tb)
-        return None, e
-
-async def safe_call_async(fn, *args, log_exception=True, **kwargs):
-    try:
-        return await fn(*args, **kwargs), None
     except Exception as e:
         tb = traceback.format_exc()
         if log_exception:
