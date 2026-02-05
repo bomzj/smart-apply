@@ -47,6 +47,11 @@ async def browser(pw: Playwright):
         ("https://www.google.com", "Google"),
         ("https://www.apple.com", "Apple"),
         ("https://www.microsoft.com", "Microsoft"),
+        ("https://www.neweratech.com", "New Era Technology"),
+        ("https://www.epam.com", "EPAM"),
+        ("https://agilitymultichannel.com", "Insight Software"),
+        ("https://www.qbankdam.com", "QBank"),
+        ("https://www.4ng.nl/", "Conclusion Experience"),
     ]
 )
 async def test_infer_company_name(browser: Browser, url, expected_company_name):
