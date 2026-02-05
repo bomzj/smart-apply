@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 from llm import ask_llm
 from page_parsers import extract_emails, extract_forms, extract_links_to_visit, html_to_plain_text, locator_to_html
 from applicant import application_template
-from smolagents import tool
 from result import Err, Ok, safe_call, safe_fn
 from playwright.async_api import Page, Locator, TimeoutError, expect
 from gmail import send_email_from_me
@@ -46,21 +45,21 @@ async def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
     
     for link in links[:5]:  # Limit to first 5 links to avoid excessive navigation
         print(f"Visiting page: {link}")
-        await page.goto(link)
-        applied = await apply_on_page(ctx)
+        applied = await apply_on_page(ctx, link)
         if applied: 
             return applied
         else:
             print(f"No application method found on this page {page.url}.\n")
 
-
     return None
 
 
-async def apply_on_page(ctx) -> ApplyMethod | None:
+async def apply_on_page(ctx, url) -> ApplyMethod | None:
     '''Try to apply to job on the page by sending email or submitting form'''
 
     page = ctx['page']
+
+    await page.goto(url)
 
     job_emails, contact_emails = await extract_emails(page)
     

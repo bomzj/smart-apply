@@ -53,12 +53,8 @@ def ask_llm(message: str, model: Model = "fast") -> str:
 #     # for langfuse to work with smolagents and azure open ai
 #     SmolagentsInstrumentor().instrument()
 
-
-model = AzureOpenAIServerModel(
-      model_id=settings.azure_openai_model_fast,
-      azure_endpoint=settings.azure_openai_endpoint,
-      api_key=settings.azure_openai_api_key,
-      api_version=settings.azure_openai_api_version
+llm = AzureOpenAI(
+    azure_endpoint=settings.azure_openai_endpoint,
+    api_key=settings.azure_openai_api_key,
+    api_version=settings.azure_openai_api_version
 )
-
-llm = model.create_client()

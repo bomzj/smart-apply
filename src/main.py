@@ -77,11 +77,11 @@ async def main():
                         match e:
                             # handle gmail 429 limit exceeded error specifically
                             case HttpError() as e:
-                                print(f"Failed to apply on website: {host}\n{e}\n")
                                 print(f"Error sending email: {e}\n")
                                 if e.content:
                                     error_json = json.loads(e.content.decode('utf-8'))
                                     print(f"API error details: {error_json}")
+                                print(f"Failed to apply on website: {host}\n")
                                 print("Exitting due to potential Gmail API limit has reached.")
                                 exit(0)
                             case _:
