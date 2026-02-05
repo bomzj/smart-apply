@@ -1,32 +1,48 @@
 from dataclasses import dataclass
 import json
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from llm import ask_llm
 import re
 from playwright.async_api import Page, Locator
-import asyncio
 from result import safe_call
 
 
 async def infer_company_name(page: Page) -> str:
-    # locator.get_attribute is async
-    meta_site_name = None
     try:
-        meta = page.locator('meta[property="og:site_name"]')
-        meta_site_name = await meta.get_attribute("content", timeout=1)  
+        meta_site_name = page.locator('meta[property="og:site_name"]').get_attribute("content", timeout=1)  
     except:
         pass
 
     title = await page.title()
     url = page.url
-    parts = [
-        f"Given the website with title '{title}'",
-        meta_site_name and f"meta og:site_name '{meta_site_name}'",
-        f"url '{url}'",
-    ]
 
-    task = f"{', '.join(filter(None, parts))}. Infer the company name."
-    return ask_llm(task)
+    task = (
+        f"Context: Title '{title}', OG Site Name '{meta_site_name}', URL '{url}'. "
+        "Task: Infer the official short company name. "
+        "Guardrails: "
+        "- Output ONLY the name. "
+        "- Do not include descriptions, taglines, or legal suffixes like 'Inc.' or 'LLC'. "
+        "- Maximum 3 words. "
+        "- If unsure, provide the most likely brand name."
+    )
+    
+    company_name = ask_llm(task)
+    
+    # Post-process to enforce guardrails
+    if not company_name:
+        print(f"LLM returned empty company name for URL: {url}.")
+        # Fallback to domain name if LLM fails to provide a name
+        domain = urlparse(url).netloc
+        
+        # Take first part of domain and capitalize
+        return domain.split('.')[0].capitalize()
+      
+    # Split LLM response into words and keep only the first 3
+    words = company_name.split()
+    shortened = " ".join(words[:3])
+
+    # Truncate total character length to prevent massive strings (e.g., max 50 chars)
+    return shortened[:50].strip()
 
 
 async def extract_links_to_visit(page: Page) -> list[str]:

@@ -1,22 +1,36 @@
+from dataclasses import dataclass
 import json
 from typing import Literal
 from urllib.parse import urlparse
 from llm import ask_llm
-from page_parsers import extract_emails, extract_forms, extract_links_to_visit, html_to_plain_text, locator_to_html
-from applicant import application_template
+from page_parsers import extract_emails, extract_forms, extract_links_to_visit, html_to_plain_text, infer_company_name, locator_to_html
 from result import Err, Ok, safe_call, safe_fn
 from playwright.async_api import Page, Locator, TimeoutError, expect
 from gmail import send_email_from_me
 from captcha_solvers.recaptcha import *
 from captcha_solvers.cloudflare_challenge import *
-from googleapiclient.errors import HttpError
+from config import settings
 
 
 type ApplyMethod = Literal['email', 'form']
 
+@dataclass
+class Applicant:
+    full_name: str
+    email: str
+    subject: str
+    pdf_resume: str
+    message: str
+
+@dataclass
+class ApplyContext:
+    page: Page
+    applicant: Applicant
+
+
 @safe_fn
-async def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
-    page = ctx['page']
+async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None:
+    page = ctx.page
     host = hostname(start_url)
 
     start_url = ensure_https(start_url)
@@ -37,13 +51,32 @@ async def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
 
     # Extract page links related to jobs and contact info
     links = await extract_links_to_visit(page)
-    if links:
-        formatted_links = json.dumps(links, indent=2, ensure_ascii=False)
-        print(f"Extracted links for {host}:\n{formatted_links}\n")
-    else:
-        print(f"No links found on the page at {host}.\n")
     
-    for link in links[:5]:  # Limit to first 5 links to avoid excessive navigation
+    if not links:
+        print(f"No links found on the page at {host}.\n")
+        return None
+
+    # Limit to first 5 links to avoid excessive navigation
+    links = links[:5]
+    formatted_links = json.dumps(links, indent=2, ensure_ascii=False)
+    print(f"Extracted first 5 links for {host}:\n{formatted_links}\n")
+
+    applicant = Applicant(
+        full_name=settings.applicant_name,
+        email=settings.applicant_email,
+        subject=settings.applicant_subject,
+        pdf_resume=settings.applicant_pdf,
+        message=settings.applicant_message.strip()
+    )
+
+    # Replace message template placeholders with actual values
+    company_name = await infer_company_name(page)
+    # Mentioning company name looks more personalized which is good 
+    applicant.message = applicant.message.replace("{company_name}", company_name)
+
+    ctx.applicant = applicant
+
+    for link in links:  
         print(f"Visiting page: {link}")
         applied = await apply_on_page(ctx, link)
         if applied: 
@@ -54,10 +87,9 @@ async def apply_on_site(ctx: dict, start_url: str) -> ApplyMethod | None:
     return None
 
 
-async def apply_on_page(ctx, url) -> ApplyMethod | None:
+async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyMethod | None:
     '''Try to apply to job on the page by sending email or submitting form'''
-
-    page = ctx['page']
+    page = ctx.page
 
     await page.goto(url)
 
@@ -115,12 +147,12 @@ async def job_or_contact_form(page: Page) -> Locator:
         return page.locator('form').nth(int(res))
 
 @safe_fn
-async def apply_via_form(ctx, form: Locator):
-    page = ctx['page']
+async def apply_via_form(ctx: ApplyContext, form: Locator):
+    page = ctx.page
     
     # TODO: expose required fields by submitting empty form
     
-    form_data = await applicant_to_form(application_template, form)
+    form_data = await applicant_to_form(ctx.applicant, form)
     
     # TODO: uncheck checkboxes to avoid unwanted subscriptions
     
@@ -153,8 +185,9 @@ async def apply_via_form(ctx, form: Locator):
     if res.ok:
         print(f"Submitted form at {current_url}\n")
     else:
-        print(f"Failed to submit form at {current_url}\n")
-        return Err(ValueError(f"Failed to submit form at {current_url}\n{res.err}"))
+        err = f"Failed to submit form at {current_url}\n{res.err}"
+        print(err)
+        return Err(ValueError(err))
     
     return Ok()
 
@@ -314,9 +347,9 @@ async def submit_form(form: Locator):
         raise ValueError(res['error'])
 
 
-def apply_via_email(ctx, email_to):
-    app = application_template
-    send_email_from_me(email_to, app['subject'], app['message'], [app['pdf_resume']])
+def apply_via_email(ctx: ApplyContext, email_to: str):
+    app = ctx.applicant
+    send_email_from_me(email_to, app.subject, app.message, [app.pdf_resume])
     print(f"Sent email to {email_to}\n")
 
 

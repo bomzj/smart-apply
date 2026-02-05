@@ -1,4 +1,7 @@
-from page_parsers import html_to_plain_text
+import pytest
+from playwright.async_api import async_playwright, Playwright, Browser
+import pytest_asyncio
+from page_parsers import html_to_plain_text, infer_company_name
 
 
 def test_html_to_plain_text():
@@ -21,3 +24,36 @@ def test_html_to_plain_text():
         </html>
     """
     assert html_to_plain_text(html) == "Hello world! This is bold and italic text. More text here. With a line break."
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def pw():
+    """Start Playwright once per session"""
+    async with async_playwright() as pw:
+        yield pw
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def browser(pw: Playwright):
+    """Create one shared browser instance for the entire test session"""
+    browser = await pw.chromium.launch(headless=True)
+    yield browser
+    await browser.close()
+
+@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.parametrize(
+    "url, expected_company_name",
+    [
+        ("https://www.google.com", "Google"),
+        ("https://www.apple.com", "Apple"),
+        ("https://www.microsoft.com", "Microsoft"),
+    ]
+)
+async def test_infer_company_name(browser: Browser, url, expected_company_name):
+        page = await browser.new_page()
+      
+        await page.goto(url)
+        company_name = await infer_company_name(page)
+        assert company_name == expected_company_name
+
+        await page.close()

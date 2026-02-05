@@ -6,7 +6,8 @@ from playwright.async_api import async_playwright
 from googleapiclient.errors import HttpError
 
 from result import Err, Ok
-from apply_methods import apply_on_site, hostname
+from apply_methods import Applicant, ApplyContext, apply_on_site, hostname
+from config import settings
 
 # Rich imports for fixed stats display
 from rich.live import Live
@@ -57,7 +58,8 @@ async def main():
                 
                 # Create a new page for each website to ensure a clean state
                 page = await browser.new_page()
-                ctx = {'page': page}
+
+                ctx = ApplyContext(page, None)
                 
                 host = hostname(url)
                 res = await apply_on_site(ctx, url)
