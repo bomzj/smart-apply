@@ -1,7 +1,5 @@
 from typing import Literal
 from openai import AzureOpenAI
-from smolagents import tool, CodeAgent, AzureOpenAIServerModel
-from openinference.instrumentation.smolagents import SmolagentsInstrumentor
 #from langfuse import Langfuse, get_client, observe
 from config import settings
 
