@@ -52,11 +52,11 @@ success, error = safe_call(lambda: page.click(".btn", timeout=1000))
 ```
 
 ### Playwright
-- Pass the `ctx` dictionary (containing `page` object) between functions to maintain browser state.
+- Pass the `ctx` dictionary (containing `page` object and applicant data) between functions to maintain browser state.
 
 ## 5. Coding Standards & Style
 
-### Modern Python (3.12+)
+### Modern Python (3.14+)
 - **Type Hints**: Use `X | Y` syntax (e.g., `str | None`) exclusively. Avoid `Union` or `Optional`.
 - **Control Flow**: Prefer `match/case` statements over complex `if-elif` chains.
 
