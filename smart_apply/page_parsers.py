@@ -1,20 +1,18 @@
-from dataclasses import dataclass
 import json
 from urllib.parse import urljoin, urlparse
-from llm import ask_llm
 import re
-from playwright.async_api import Page, Locator
-from result import safe_call
+from pydoll.browser.tab import Tab
+from pydoll.elements.web_element import WebElement
+from smart_apply.llm import ask_llm
+from smart_apply.browser_utils import script_value
 
 
-async def infer_company_name(page: Page) -> str:
-    try:
-        meta_site_name = page.locator('meta[property="og:site_name"]').get_attribute("content", timeout=1)  
-    except:
-        pass
+async def infer_company_name(tab: Tab) -> str:
+    meta = await tab.query('meta[property="og:site_name"]', raise_exc=False)
+    meta_site_name = meta.get_attribute("content") if meta else None
 
-    title = await page.title()
-    url = page.url
+    title = await tab.title
+    url = await tab.current_url
 
     task = (
         f"Context: Title '{title}', OG Site Name '{meta_site_name}', URL '{url}'. "
@@ -45,12 +43,15 @@ async def infer_company_name(page: Page) -> str:
     return shortened[:50].strip()
 
 
-async def extract_links_to_visit(page: Page) -> list[str]:
+async def extract_links_to_visit(tab: Tab) -> list[str]:
     ''' Extract links related to jobs and contact info pages'''
     
-    url = page.url
-    # evaluate_all is async
-    links = await page.locator("a").evaluate_all("elements => elements.map(el => el.href)")
+    url = await tab.current_url
+    result = await tab.execute_script(
+        "return Array.from(document.querySelectorAll('a')).map(el => el.href)",
+        return_by_value=True
+    )
+    links = script_value(result)
     if not links: return []
 
     task = (
@@ -112,11 +113,12 @@ async def extract_links_to_visit(page: Page) -> list[str]:
     return full_urls
 
 
-async def extract_emails(page: Page) -> tuple[list[str], list[str]]:
+async def extract_emails(tab: Tab) -> tuple[list[str], list[str]]:
     ''' Extract emails related to career and generic contacts'''
-    url = page.url
-    content = await page.content()
+    url = await tab.current_url
+    content = await tab.page_source
     html_text = html_to_plain_text(content)
+
     task = (
     f"Given the following text from {url}:\n\n"
     f"{html_text}\n\n"
@@ -142,16 +144,19 @@ async def extract_emails(page: Page) -> tuple[list[str], list[str]]:
     return emails['job_emails'], emails['contact_emails']  
 
 
-async def extract_forms(page: Page) -> list[str]:
+async def extract_forms(tab: Tab) -> list[str]:
     ''' Extract all forms on the current page as list of html snippets'''
-    forms = await page.locator("form").evaluate_all("elements => elements.map(el => el.outerHTML)")
+    result = await tab.execute_script(
+        "return Array.from(document.querySelectorAll('form')).map(el => el.outerHTML)",
+        return_by_value=True
+    )
     # TODO: maybe we should scan iframes containing forms as well?
-    #page.frames[0].eval_on_selector_all('form', 'els => els.map(el => el.outerHTML)')
-    return forms
+    return script_value(result) or []
 
 
-async def locator_to_html(loc: Locator) -> str:
-    return await loc.evaluate("el => el.outerHTML")
+async def element_outer_html(element: WebElement) -> str:
+    result = await element.execute_script("return this.outerHTML", return_by_value=True)
+    return script_value(result) or ''
 
 
 def html_to_plain_text(html):

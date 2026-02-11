@@ -2,12 +2,14 @@ import json
 import logging
 import asyncio
 from pathlib import Path
-from playwright.async_api import async_playwright
 from googleapiclient.errors import HttpError
 
-from result import Err, Ok
-from apply_methods import Applicant, ApplyContext, apply_on_site, hostname
-from config import settings
+from pydoll.browser.chromium import Chrome
+from pydoll.browser.options import ChromiumOptions
+
+from smart_apply.result import Err, Ok
+from smart_apply.apply_methods import Applicant, ApplyContext, apply_on_site, hostname
+from smart_apply.config import settings
 
 # Rich imports for fixed stats display
 from rich.live import Live
@@ -39,27 +41,26 @@ async def main():
         "sent_emails": 0,
         "submitted_forms": 0
     }
- 
+
+    options = ChromiumOptions()
+    options.add_argument(f'--user-data-dir={BROWSER_DATA_DIR}')
+    options.add_argument('--start-maximized')
+
     # Start the live stats display (wraps all processing)
     with Live(stats_panel(stats), auto_refresh=True) as live:
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch_persistent_context(
-                user_data_dir=str(BROWSER_DATA_DIR),
-                headless=False,
-                args=['--start-maximized'], # Maximize window
-                no_viewport=True, # also required for maximized window
-                slow_mo=50
-            )
+        async with Chrome(options=options) as browser:
+            # Start the initial tab (required by PyDoll)
+            await browser.start()
 
             failed_urls_log = logger('failed_urls', str(LOGS_DIR / 'failed_urls.log'))
 
             for url in urls:
                 print(f"Processing website: {url}")
                 
-                # Create a new page for each website to ensure a clean state
-                page = await browser.new_page()
+                # Create a new tab for each website to ensure a clean state
+                tab = await browser.new_tab()
 
-                ctx = ApplyContext(page, None)
+                ctx = ApplyContext(tab, None)
                 
                 host = hostname(url)
                 res = await apply_on_site(ctx, url)
@@ -77,6 +78,7 @@ async def main():
                     
                     case Err(e):
                         match e:
+                            # TODO: handle the case when site is not available
                             # handle gmail 429 limit exceeded error specifically
                             case HttpError() as e:
                                 print(f"Error sending email: {e}\n")
@@ -93,10 +95,7 @@ async def main():
                 stats["processed_sites"] += 1
                 print(f"Finished processing website: {host}\n")
                 live.update(stats_panel(stats))
-                await page.close()
-
-            await browser.close()
-            # pw.stop() is automatic with context manager
+                await tab.close()
 
     print("All websites have been processed.\n")
 

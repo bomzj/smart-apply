@@ -2,26 +2,26 @@
 
 ## 1. Project Overview
 Smart Apply is an AI agent that automates job applications by navigating company websites, solving captchas, extracting contact details, and submitting forms or sending emails.
-- **Stack**: Python 3.14+, Playwright (Async API), Azure OpenAI (LLM), Gmail API.
+- **Stack**: Python 3.14+, Pydoll, Azure OpenAI (LLM), Gmail API.
 - **Dependency Manager**: `uv`.
 
 ## 2. Architecture & Data Flow
-Top-level entry point is `src/main.py`.
+Top-level entry point is `smart_apply/main.py`.
 1. **Input**: Reads URLs from `data/urls.txt` and config from `config.yaml`.
-2. **Navigation**: `main.py` iterates URLs, visiting each with Playwright.
-   - Handles Cloudflare challenges via `src/captcha_solvers/cloudflare_challenge.py`.
-3. **Extraction**: `src/page_parsers.py` uses LLMs to identify career pages and extract links (ignoring specific job postings to find generic "Apply" or "Contact" pages).
-4. **Application Logic**: `src/apply_methods.py` implements the strategy:
+2. **Navigation**: `main.py` iterates URLs, visiting each with Pydoll.
+   - Handles Cloudflare challenges via `smart_apply/captcha_solvers/cloudflare_challenge.py`.
+3. **Extraction**: `smart_apply/page_parsers.py` uses LLMs to identify career pages and extract links (ignoring specific job postings to find generic "Apply" or "Contact" pages).
+4. **Application Logic**: `smart_apply/apply_methods.py` implements the strategy:
    - **Priority 1**: Direct Email, related to job application (parsed from page).
    - **Priority 2**: Form Submission, prioritizing job-related forms, then generic contact ones (detected and filled via LLM).
    - **Priority 3**: Generic Contact Email (contact@, info@, hello@).
-5. **LLM Integration**: `src/llm.py` provides `ask_llm` interface to Azure OpenAI.
+5. **LLM Integration**: `smart_apply/llm.py` provides `ask_llm` interface to Azure OpenAI.
 
 ## 3. Important Development Workflows
 
 - **Run Application**:
   ```bash
-  uv run src/main.py
+  uv run smart_apply/main.py
   ```
 - **Run Tests**:
   ```bash
@@ -31,28 +31,20 @@ Top-level entry point is `src/main.py`.
   - Add packages: `uv add <package>`
   - Sync environment: `uv sync`
 - **Gmail Auth**:
-  - Run `uv run src/gmail.py` to refresh tokens in `secrets/`.
+  - Run `uv run smart_apply/gmail.py` to refresh tokens in `secrets/`.
 
 ## 4. Key Patterns & Conventions
 
 ### LLM Usage
-Do not write hardcoded regex for complex parsing. Use `ask_llm` from `src/llm.py` to interpret DOM elements or text.
+Do not write hardcoded regex for complex parsing. Use `ask_llm` from `smart_apply/llm.py` to interpret DOM elements or text.
 ```python
 from llm import ask_llm
 # Example: Infer company name
-result = ask_llm(f"Infer company name from title: {page.title()}")
+result = ask_llm(f"Infer company name from title: {tab.title()}")
 ```
 
-### Robust Execution
-Wrap Playwright interactions or flaky operations in `safe_call` from `src/result.py` to prevent crashes.
-```python
-from result import safe_call
-# Returns (result, exception) tuple
-success, error = safe_call(lambda: page.click(".btn", timeout=1000))
-```
-
-### Playwright
-- Pass the `ctx` dictionary (containing `page` object and applicant data) between functions to maintain browser state.
+### Pydoll
+- Pass the `ctx` dictionary (containing browser `tab` object and applicant data) between functions to maintain browser state.
 
 ## 5. Coding Standards & Style
 
@@ -96,10 +88,10 @@ def company_url(model: JobApplication) -> str:
 ```
 
 ## 6. Configuration & Secrets
-- **Config**: Accessed via `src/config.py`. Do not hardcode API keys or model names. Use `settings.get("path.to.key")`.
+- **Config**: Accessed via `smart_apply/config.py`. Do not hardcode API keys or model names. Use `settings.get("path.to.key")`.
 - **Secrets**: `secrets/` folder contains sensitive JSONs (Gmail tokens). Never commit these.
 - **Input Data**: User-specific URLs reside in `data/urls.txt`.
 
 ## 7. Docker vs Local
-- **Local (Recommended)**: Faster execution. Requires installed browser (`uv run playwright install`).
+- **Local (Recommended)**: Faster execution. 
 - **Docker**: Available via `docker-compose.yml` but explicitly noted as slower.

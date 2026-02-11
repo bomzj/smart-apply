@@ -1,7 +1,7 @@
 from typing import Literal
 from openai import AzureOpenAI
 #from langfuse import Langfuse, get_client, observe
-from config import settings
+from smart_apply.config import settings
 
 LANGFUSE_ENABLED = settings.langfuse_enabled
 

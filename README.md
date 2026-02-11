@@ -16,11 +16,10 @@ It uses **LLM** to analyze websites, understand forms, and automatically:
 
 1. Ensure you have [uv](https://docs.astral.sh/uv/) installed.
 
-2. Install dependencies and browser:
+2. Install dependencies:
 
 ```bash
 uv sync
-uv run playwright install chromium
 ```
 
 ### Option 2 - With Docker
@@ -43,7 +42,7 @@ docker compose build
 
 *NOTE:* to renew expired gmail auth token run the following command:
 ```bash
-uv run src/gmail.py
+uv run smart_apply/gmail.py
 ```
 
 ## Configuration
@@ -54,7 +53,7 @@ uv run src/gmail.py
 
 >  **NOTE**: Smart Apply uses Azure OpenAI by default, but you can switch to any LLM.
 
-3. Fill in your personal information (name, email, etc.) used during applications.
+3. Fill in your personal information (your full name, email, message, pdf resume, etc.) that will be used during job applications.
 
 4.  *Optional* Configure Langfuse for LLM tracing/debugging.
 
@@ -62,12 +61,11 @@ uv run src/gmail.py
 
 1. Create a `urls.txt` file containing the URLs of the companies you want to apply to.
 
-2. Create an `applicant_message.txt` file containing the message you want to send with your applications.
 
-3. Smart Apply can run **either locally or with Docker** — choose one of the options below.
+2. Smart Apply can run **either locally or with Docker** — choose one of the options below.
 
 ```bash
-uv run src/main.py
+uv run smart_apply/main.py
 ```
 
 Or
