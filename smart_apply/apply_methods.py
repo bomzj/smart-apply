@@ -88,7 +88,6 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
 
     ctx.applicant = applicant
 
-    links = ['https://www.acxiom.co.uk/about-us/contact-us/']
     for link in links:  
         print(f"Visiting page: {link}")
         applied = await apply_on_page(ctx, link)
@@ -390,10 +389,9 @@ async def submit_form(tab: Tab, form: WebElement):
 
 
 def apply_via_email(ctx: ApplyContext, email_to: str):
-    # app = ctx.applicant
-    # send_email_from_me(email_to, app.subject, app.message, [app.pdf_resume])
-    # print(f"Sent email to {email_to}\n")
-    pass
+    app = ctx.applicant
+    send_email_from_me(email_to, app.subject, app.message, [app.pdf_resume])
+    print(f"Sent email to {email_to}\n")
 
 
 # Url utilities
