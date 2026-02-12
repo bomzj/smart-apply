@@ -329,7 +329,7 @@ async def submit_form(tab: Tab, form: WebElement):
 
     # Click submit and wait for potential form submission response
     await submit_btn.click()
-    await asyncio.sleep(3)
+    await asyncio.sleep(10)
 
     # Assume successful form submission hides the form, including redirects to thank you pages
     # if form is detached from DOM is_visible will raise or return False
@@ -382,7 +382,7 @@ async def submit_form(tab: Tab, form: WebElement):
         {page_text}
         """.replace("{page_text}", page_text)
     
-    res = ask_llm(submission_validation_prompt)
+    res = ask_llm(submission_validation_prompt, model="smart")
     res = json.loads(res)
 
     if res.get("error"):
