@@ -5,6 +5,7 @@ from pydoll.browser.tab import Tab
 from pydoll.elements.web_element import WebElement
 from smart_apply.llm import ask_llm
 from smart_apply.browser_utils import script_value
+from smart_apply.logger import log_warning
 
 
 async def infer_company_name(tab: Tab) -> str:
@@ -28,7 +29,7 @@ async def infer_company_name(tab: Tab) -> str:
     
     # Post-process to enforce guardrails
     if not company_name:
-        print(f"LLM returned empty company name for URL: {url}.")
+        log_warning(f"LLM returned empty company name for URL: {url}.")
         # Fallback to domain name if LLM fails to provide a name
         domain = urlparse(url).netloc
         

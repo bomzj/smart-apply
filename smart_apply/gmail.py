@@ -69,7 +69,8 @@ def create_message(sender, to, subject, body, attachments=None):
     if attachments:
         for file_path in attachments:
             if not os.path.isfile(file_path):
-                print(f"Warning: Attachment not found - {file_path}")
+                from smart_apply.logger import log_warning
+                log_warning(f"Attachment not found - {file_path}")
                 continue
                 
             # Guess the content type based on the file extension

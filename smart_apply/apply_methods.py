@@ -21,6 +21,7 @@ from smart_apply.captcha_solvers.recaptcha import *
 from smart_apply.captcha_solvers.cloudflare_challenge import *
 from smart_apply.config import settings
 from smart_apply.browser_utils import script_value
+from smart_apply.logger import log_info, log_error, log_warning, log_sent_email, log_failed_form
 
 
 type ApplyMethod = Literal['email', 'form']
@@ -52,11 +53,11 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
     # Wait for Cloudflare challenge to be auto-solved by Pydoll if present
     if await cf_challenge(tab):
         try:
-            print(f"Cloudflare challenge detected on {host}, waiting to be solved...")
+            log_info(f"Cloudflare challenge detected, waiting to be solved...")
             await wait_until(lambda: no_cf_challenge(tab))
-            print(f"Successfully solved Cloudflare challenge on {host}.")
+            log_info(f"Cloudflare challenge solved.")
         except:
-            print(f"Failed to solve Cloudflare challenge on {host}. Skipping this site.\n")
+            log_error(f"Failed to solve Cloudflare challenge. Skipping this site.")
             return None
     
     await tab.disable_auto_solve_cloudflare_captcha()
@@ -65,13 +66,13 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
     links = await extract_links_to_visit(tab)
     
     if not links:
-        print(f"No links found on the page at {host}.\n")
+        log_warning(f"No links found on the page at {host}.")
         return None
 
     # Limit to first 5 links to avoid excessive navigation
     links = links[:5]
     formatted_links = json.dumps(links, indent=2, ensure_ascii=False)
-    print(f"Extracted {len(links)} relevant links for {host}:\n{formatted_links}\n")
+    log_info(f"Extracted {len(links)} relevant links:\n{formatted_links}")
 
     applicant = Applicant(
         full_name=settings.applicant_name,
@@ -89,13 +90,13 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
     ctx.applicant = applicant
 
     for link in links:  
-        print(f"Visiting page: {link}")
+        log_info(f"Visiting page: {link}")
         applied = await apply_on_page(ctx, link)
         if applied: 
             return applied
         else:
             current_url = await tab.current_url
-            print(f"No application method found on this page {current_url}.\n")
+            log_info(f"No application method found on this page {current_url}.")
 
     return None
 
@@ -186,15 +187,15 @@ async def apply_via_form(ctx: ApplyContext, form: WebElement):
 
     # 2. Proceed with solving
     current_url = await tab.current_url
-    print(f"ReCaptcha detected on {current_url}, attempting to solve...")
+    log_info(f"ReCaptcha detected on {current_url}, attempting to solve...")
     solved = await solve_recaptcha(recaptcha)
 
     # 3. Early exit if solving fails
     if not solved:
-        print(f"Failed to solve ReCaptcha on {current_url}.")
+        log_error(f"Failed to solve ReCaptcha on {current_url}.")
         return
 
-    print(f"ReCaptcha solved on {current_url}.")
+    log_info(f"ReCaptcha solved on {current_url}.")
 
     # preserve current url since form submission may redirect to different url
     current_url = await tab.current_url
@@ -202,11 +203,11 @@ async def apply_via_form(ctx: ApplyContext, form: WebElement):
     res = await submit_form(tab, form)
 
     if res.ok:
-        print(f"Submitted form at {current_url}\n")
+        log_info(f"Submitted form at {current_url}")
     else:
-        err = f"Failed to submit form at {current_url}\n{res.err}"
-        print(err)
-        return Err(ValueError(err))
+        log_failed_form(current_url)
+        log_error(f"Form error details: {res.err}")
+        return Err(ValueError(f"Failed to submit form at {current_url}\n{res.err}"))
     
     return Ok()
 
@@ -334,7 +335,7 @@ async def submit_form(tab: Tab, form: WebElement):
     # if form is detached from DOM is_visible will raise or return False
     visible, err = await safe_call(lambda: form.is_visible(), log_exception=False) 
     if err or not visible:
-        print(f"Form submission appears successful (form is no longer visible).")
+        log_info("Form submission appears successful (form is no longer visible).")
         return
 
     # Also assume successful submission when input fields are cleared
@@ -350,7 +351,7 @@ async def submit_form(tab: Tab, form: WebElement):
             break
 
     if all_cleared and inputs:
-        print(f"Form submission appears successful (input fields cleared).")
+        log_info("Form submission appears successful (input fields cleared).")
         return
 
     # As the last resort, prompt to verify submission success
@@ -391,7 +392,7 @@ async def submit_form(tab: Tab, form: WebElement):
 def apply_via_email(ctx: ApplyContext, email_to: str):
     app = ctx.applicant
     send_email_from_me(email_to, app.subject, app.message, [app.pdf_resume])
-    print(f"Sent email to {email_to}\n")
+    log_sent_email(email_to)
 
 
 # Url utilities

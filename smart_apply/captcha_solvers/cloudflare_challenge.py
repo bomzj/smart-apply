@@ -1,8 +1,9 @@
 from pydoll.browser.tab import Tab
 from pydoll.elements.web_element import WebElement
+from smart_apply.logger import log_info
 
 async def cf_challenge(tab: Tab) -> bool:
-    print("Checking for Cloudflare challenge...")
+    log_info("Checking for Cloudflare challenge...")
     # Interstitial challenge indicator
     title = await tab.title
     if title == "Just a moment...": 

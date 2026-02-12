@@ -2,6 +2,7 @@ from pydoll.browser.tab import Tab
 from pydoll.elements.web_element import WebElement
 from pydoll.exceptions import WaitElementTimeout, ElementNotFound
 from smart_apply.browser_utils import wait_until, script_value
+from smart_apply.logger import log_info, log_error
 
 
 async def page_has_recaptcha(tab: Tab) -> bool:
@@ -46,18 +47,18 @@ async def solve_recaptcha(recaptcha_iframe: WebElement) -> bool:
     # V3 and invisible V2 need human-like behavior (human-like mouse movement)
     
     try:
-        print('Clicking on ReCaptcha checkbox.')
+        log_info('Clicking on ReCaptcha checkbox.')
         checkbox = await recaptcha_iframe.query('.recaptcha-checkbox-border', raise_exc=False)  # Wait until recaptcha loads
         await checkbox.click()
-        print('Clicked on ReCaptcha checkbox.')
+        log_info('Clicked on ReCaptcha checkbox.')
     except Exception as e:
-        print(f'Failed to click ReCaptcha within timeout.\n{e}')
+        log_error(f'Failed to click ReCaptcha within timeout.\n{e}')
         return False
         
     try:
         # Wait until recaptcha gets response asynchronously after click
         await wait_until(lambda: recaptcha_already_solved(recaptcha_iframe), timeout=15)
         return True
-    except:
-        print('Failed to solve ReCaptcha within timeout.')
+    except Exception:
+        log_error('Failed to solve ReCaptcha within timeout.')
         return False
