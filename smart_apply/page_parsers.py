@@ -25,7 +25,7 @@ async def infer_company_name(tab: Tab) -> str:
         "- If unsure, provide the most likely brand name."
     )
     
-    company_name = ask_llm(task)
+    company_name = ask_llm(task, model="smart")
     
     # Post-process to enforce guardrails
     if not company_name:
