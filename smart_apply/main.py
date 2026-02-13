@@ -57,7 +57,7 @@ async def main():
                 host = hostname(url)
                 set_host(host)
 
-                log_info(f"Processing website: {url}")
+                log_info(f"Processing website...")
                 
                 # Create a new tab for each website to ensure a clean state
                 tab = await browser.new_tab()
@@ -75,7 +75,6 @@ async def main():
                                 stats["submitted_forms"] += 1
                             case _:
                                 log_info(f"No email or form application were found on website {host}.")
-                                log_failed_url(url)
                     
                     case Err(e):
                         match e:
@@ -94,7 +93,7 @@ async def main():
                                 log_failed_url(url)
             
                 stats["processed_sites"] += 1
-                log_info(f"Finished processing website: {host}")
+                log_info(f"Finished processing website.")
                 live.update(stats_panel(stats))
                 await tab.close()
 
