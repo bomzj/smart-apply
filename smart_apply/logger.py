@@ -38,9 +38,38 @@ class _RichConsoleHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
         try:
             msg = self.format(record)
-            self._console.print(msg, highlight=False, markup=False)
+            self._console.print(msg, highlight=False, markup=True)
         except Exception:
             self.handleError(record)
+
+
+class RichColoredFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        record.asctime = self.formatTime(record, self.datefmt)
+        hostname = getattr(record, 'hostname', 'unknown')
+
+        color = 'white'
+        if record.levelno == logging.INFO:
+            color = 'bright_green'
+        elif record.levelno == logging.WARNING:
+            color = 'bright_yellow'
+        elif record.levelno == logging.ERROR:
+            color = 'bright_red'
+        elif record.levelno == logging.DEBUG:
+            color = 'bright_magenta'
+
+        prefix = (
+            f"[white]{record.asctime}[/white] "
+            f"[{color}]{record.levelname:<8}[/{color}] "
+            f"[yellow]{hostname}[/yellow]"
+        )
+        message = record.getMessage()
+        formatted = f"{prefix}    {message}"
+
+        if record.exc_info:
+            formatted += f"\n{self.formatException(record.exc_info)}"
+
+        return formatted
 
 
 def setup_logging():
@@ -55,20 +84,22 @@ def setup_logging():
     if app_logger.handlers:
         return
 
-    fmt = logging.Formatter('[%(asctime)s] [%(levelname)s] [%(hostname)s] %(message)s', datefmt='%H:%M:%S')
+    file_fmt = logging.Formatter('[%(asctime)s] [%(levelname)s] [%(hostname)s] %(message)s', datefmt='%H:%M:%S')
+    console_fmt = RichColoredFormatter(datefmt='%H:%M:%S')
+
     hostname_filter = _HostnameFilter()
 
     # Console handler (routed through Rich Console to avoid ghosting with Live panels)
     console_handler = _RichConsoleHandler(console)
     console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(fmt)
+    console_handler.setFormatter(console_fmt)
     console_handler.addFilter(hostname_filter)
     app_logger.addHandler(console_handler)
 
     # app.log file handler
     app_file = logging.FileHandler(log_dir / 'app.log', mode='a', encoding='utf-8')
     app_file.setLevel(logging.INFO)
-    app_file.setFormatter(fmt)
+    app_file.setFormatter(file_fmt)
     app_file.addFilter(hostname_filter)
     app_logger.addHandler(app_file)
 

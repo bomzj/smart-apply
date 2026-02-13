@@ -111,7 +111,7 @@ def stats_panel(stats: dict[str, int]) -> Panel:
         f"Forms Submitted: {submitted_forms}\n"
         f"Total Applied: {applied}",
         title="Apply to Jobs Progress",
-        border_style="blue"
+        border_style="white"
     )
 
 if __name__ == "__main__":
