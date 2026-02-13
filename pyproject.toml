@@ -23,3 +23,7 @@ dependencies = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+# Only smart_apply folder is the package folder to use in editable/development mode, disregard secrets/ , data/ and etc 
+[tool.setuptools]
+packages = ["smart_apply"]

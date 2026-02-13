@@ -6,3 +6,4 @@ config.yaml
 __pycache__
 /.browser_session_data
 *.log
+*.egg-info/
