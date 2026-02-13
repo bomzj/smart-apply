@@ -14,6 +14,7 @@ from smart_apply.logger import setup_logging, set_host, log_info, log_error, log
 # Rich imports for fixed stats display
 from rich.live import Live
 from rich.panel import Panel
+from rich.padding import Padding
 
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -100,17 +101,20 @@ async def main():
     log_info("All websites have been processed.")
 
 
-def stats_panel(stats: dict[str, int]) -> Panel:
+def stats_panel(stats: dict[str, int]) -> Padding:
     total_sites, processed_sites, sent_emails, submitted_forms = stats.values()
 
     applied = sent_emails + submitted_forms
-    return Panel(
-        f"Processed: {processed_sites} / {total_sites} websites\n"
-        f"Emails Sent: {sent_emails}\n"
-        f"Forms Submitted: {submitted_forms}\n"
-        f"Total Applied: {applied}",
-        title="Apply to Jobs Progress",
-        border_style="white"
+    return Padding(
+        Panel(
+            f"Processed: {processed_sites} / {total_sites} websites\n"
+            f"Emails Sent: {sent_emails}\n"
+            f"Forms Submitted: {submitted_forms}\n"
+            f"Total Applied: {applied}",
+            title="Apply to Jobs Progress",
+            border_style="white"
+        ),
+        (1, 0, 0, 0)
     )
 
 if __name__ == "__main__":
