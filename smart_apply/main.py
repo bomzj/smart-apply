@@ -9,7 +9,7 @@ from pydoll.browser.options import ChromiumOptions
 from smart_apply.result import Err, Ok
 from smart_apply.apply_methods import Applicant, ApplyContext, apply_on_site, hostname
 from smart_apply.config import settings
-from smart_apply.logger import setup_logging, set_host, log_info, log_error, log_failed_url
+from smart_apply.logger import setup_logging, set_host, log_info, log_error, log_failed_url, console
 
 # Rich imports for fixed stats display
 from rich.live import Live
@@ -48,7 +48,7 @@ async def main():
     options.add_argument('--start-maximized')
 
     # Start the live stats display (wraps all processing)
-    with Live(stats_panel(stats), auto_refresh=True) as live:
+    with Live(stats_panel(stats), console=console, auto_refresh=True) as live:
         async with Chrome(options=options) as browser:
             # Start the initial tab (required by PyDoll)
             await browser.start()

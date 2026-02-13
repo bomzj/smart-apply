@@ -3,9 +3,13 @@ from contextvars import ContextVar
 from datetime import date
 from pathlib import Path
 
+from rich.console import Console
+
 
 PROJECT_ROOT = Path(__file__).parent.parent
 LOGS_DIR = PROJECT_ROOT / 'logs'
+
+console = Console(stderr=True)
 
 _current_host: ContextVar[str] = ContextVar('current_host', default='unknown')
 
@@ -24,6 +28,21 @@ class _HostnameFilter(logging.Filter):
         return True
 
 
+class _RichConsoleHandler(logging.Handler):
+    """Routes log output through a Rich Console so it coordinates with Live displays."""
+
+    def __init__(self, rich_console: Console):
+        super().__init__()
+        self._console = rich_console
+
+    def emit(self, record: logging.LogRecord):
+        try:
+            msg = self.format(record)
+            self._console.print(msg, highlight=False, markup=False)
+        except Exception:
+            self.handleError(record)
+
+
 def setup_logging():
     today = date.today().isoformat()
     log_dir = LOGS_DIR / today
@@ -39,12 +58,12 @@ def setup_logging():
     fmt = logging.Formatter('[%(asctime)s] [%(levelname)s] [%(hostname)s] %(message)s', datefmt='%H:%M:%S')
     hostname_filter = _HostnameFilter()
 
-    # Console handler
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    console.setFormatter(fmt)
-    console.addFilter(hostname_filter)
-    app_logger.addHandler(console)
+    # Console handler (routed through Rich Console to avoid ghosting with Live panels)
+    console_handler = _RichConsoleHandler(console)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(fmt)
+    console_handler.addFilter(hostname_filter)
+    app_logger.addHandler(console_handler)
 
     # app.log file handler
     app_file = logging.FileHandler(log_dir / 'app.log', mode='a', encoding='utf-8')
