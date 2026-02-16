@@ -1,7 +1,5 @@
 from functools import wraps
 import inspect
-import logging
-import traceback
 from typing import Callable, ParamSpec, TypeVar, Generic, Iterator, overload, Coroutine, Any
 
 P = ParamSpec('P')  # For preserving args/kwargs types
@@ -84,6 +82,49 @@ class Err(Result[T, E]):
         return f"Err({self.error!r})"
 
 
+# ==========================================
+# safe_call
+# ==========================================
+
+@overload
+def safe_call(fn: Callable[P, Coroutine[Any, Any, Result[T, E]]], *args: P.args, **kwargs: P.kwargs) -> Coroutine[Any, Any, Result[T, E]]: ...
+
+@overload
+def safe_call(fn: Callable[P, Coroutine[Any, Any, T]], *args: P.args, **kwargs: P.kwargs) -> Coroutine[Any, Any, Result[T, Exception]]: ...
+
+@overload
+def safe_call(fn: Callable[P, Result[T, E]], *args: P.args, **kwargs: P.kwargs) -> Coroutine[Any, Any, Result[T, E]]: ...
+
+@overload
+def safe_call(fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> Coroutine[Any, Any, Result[T, Exception]]: ...
+
+async def safe_call(fn, *args, **kwargs):
+    """
+    A robust wrapper that handles sync, async, and lambda-wrapped 
+    coroutines consistently. Always needs to be awaited. Returns a Result.
+    """
+    try:
+        # 1. Execute the function
+        res = fn(*args, **kwargs)
+
+        # 2. If the result is a coroutine, await it
+        if inspect.isawaitable(res):
+            res = await res
+            
+        # 3. Wrap in Result object if not already wrapped
+        if isinstance(res, Result): 
+            return res
+            
+        return Ok(res)
+
+    except Exception as e:
+        return Err(e)
+
+
+# ==========================================
+# safe_fn
+# ==========================================
+
 @overload
 def safe_fn(func: Callable[P, Coroutine[Any, Any, Result[T, E]]]) -> Callable[P, Coroutine[Any, Any, Result[T, E]]]: ...
 
@@ -91,55 +132,19 @@ def safe_fn(func: Callable[P, Coroutine[Any, Any, Result[T, E]]]) -> Callable[P,
 def safe_fn(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[Any, Any, Result[T, Exception]]]: ...
 
 @overload
-def safe_fn(func: Callable[P, Result[T, E]]) -> Callable[P, Result[T, E]]: ...
+def safe_fn(func: Callable[P, Result[T, E]]) -> Callable[P, Coroutine[Any, Any, Result[T, E]]]: ...
 
 @overload
-def safe_fn(func: Callable[P, T]) -> Callable[P, Result[T, Exception]]: ...
+def safe_fn(func: Callable[P, T]) -> Callable[P, Coroutine[Any, Any, Result[T, Exception]]]: ...
 
 def safe_fn(func):
-    if inspect.iscoroutinefunction(func):
-        @wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            try:
-                res = await func(*args, **kwargs)
-                return res if isinstance(res, Result) else Ok(res)
-            except BaseException as e:
-                return Err(e)
-        return async_wrapper
-
+    """
+    A robust decorator that handles sync, async, and coroutine-returning 
+    lambdas. Note: All functions decorated with this become async.
+    """
     @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            res = func(*args, **kwargs)
-            # if func already returns a Result, propagate it directly
-            return res if isinstance(res, Result) else Ok(res)
-        except BaseException as e:
-            return Err(e)
+    async def wrapper(*args, **kwargs):
+        # Simply delegate execution to safe_call
+        return await safe_call(func, *args, **kwargs)
+
     return wrapper
-
-
-@overload
-def safe_call(fn: Callable[P, Coroutine[Any, Any, T]], *args: P.args, log_exception: bool = True, **kwargs: P.kwargs) -> Coroutine[Any, Any, tuple[T | None, Exception | None]]: ...
-
-@overload
-def safe_call(fn: Callable[P, T], *args: P.args, log_exception: bool = True, **kwargs: P.kwargs) -> tuple[T | None, Exception | None]: ...
-
-def safe_call(fn, *args, log_exception=True, **kwargs):
-    if inspect.iscoroutinefunction(fn):
-        async def async_wrapper():
-            try:
-                return await fn(*args, **kwargs), None
-            except Exception as e:
-                tb = traceback.format_exc()
-                if log_exception:
-                    logging.error("Exception in %s:\n%s", fn.__name__, tb)
-                return None, e
-        return async_wrapper()
-
-    try:
-        return fn(*args, **kwargs), None
-    except Exception as e:
-        tb = traceback.format_exc()
-        if log_exception:
-            logging.error("Exception in %s:\n%s", fn.__name__, tb)
-        return None, e

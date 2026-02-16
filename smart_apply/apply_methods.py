@@ -88,7 +88,7 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
     applicant.message = applicant.message.replace("{company_name}", company_name)
 
     ctx.applicant = applicant
-
+    
     for link in links:  
         log_info(f"Visiting page: {link}")
         applied = await apply_on_page(ctx, link)
@@ -118,9 +118,14 @@ async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyMethod | None:
     form = await job_or_contact_form(tab)
     
     if form:
-        res = await apply_via_form(ctx, form)
-        if res.ok: 
-            return 'form'
+        res = await apply_via_form(ctx, form)      
+        match res:
+            case Ok():
+                log_info(f"Applied via form at {url}")
+                return 'form'
+            case Err(e):
+                log_failed_form(url)
+                log_error(f"{e}")
 
     # Priority 3: fallback to generic contact email
     if contact_emails:
@@ -181,35 +186,19 @@ async def apply_via_form(ctx: ApplyContext, form: WebElement):
     recaptcha_detected = await page_has_recaptcha(tab)
     recaptcha = await find_recaptcha_with_checkbox(form) if recaptcha_detected else None
 
-    if not recaptcha:
-        # If the form doesn't require a captcha, just submit and exit
-        return await submit_form(tab, form)
+    if recaptcha:
+        # 2. Proceed with solving
+        current_url = await tab.current_url
+        log_info(f"ReCaptcha detected on {current_url}, attempting to solve...")
+        solved = await solve_recaptcha(recaptcha)
 
-    # 2. Proceed with solving
-    current_url = await tab.current_url
-    log_info(f"ReCaptcha detected on {current_url}, attempting to solve...")
-    solved = await solve_recaptcha(recaptcha)
+        # 3. Early exit if solving fails
+        if not solved:
+            raise ValueError(f"Failed to solve ReCaptcha on {current_url}.")
 
-    # 3. Early exit if solving fails
-    if not solved:
-        log_error(f"Failed to solve ReCaptcha on {current_url}.")
-        return
+        log_info(f"ReCaptcha solved on {current_url}.")
 
-    log_info(f"ReCaptcha solved on {current_url}.")
-
-    # preserve current url since form submission may redirect to different url
-    current_url = await tab.current_url
-
-    res = await submit_form(tab, form)
-
-    if res.ok:
-        log_info(f"Submitted form at {current_url}")
-    else:
-        log_failed_form(current_url)
-        log_error(f"Form error details: {res.err}")
-        return Err(ValueError(f"Failed to submit form at {current_url}\n{res.err}"))
-    
-    return Ok()
+    return await submit_form(tab, form)
 
     
 async def applicant_to_form(applicant: Applicant, form: WebElement) -> dict[str, str]:
@@ -272,7 +261,9 @@ async def fill_form(form: WebElement, form_data: dict[str, str]):
             raise ValueError(f"No element found for name='{name}' in the form.")
 
         tag = (input_element.tag_name or '').lower()
-
+        
+        await input_element.scroll_into_view()  # Ensure the element is in view before interacting
+        
         if tag == "input":
             input_type = input_element.get_attribute('type') or 'text'
             if input_type in ("checkbox", "radio"):
@@ -281,7 +272,8 @@ async def fill_form(form: WebElement, form_data: dict[str, str]):
                 if specific:
                     result = await specific.execute_script("return this.checked", return_by_value=True)
                     if not script_value(result):
-                        await specific.click()
+                        # Use JS click to avoid Pydoll issues with visibility (e.g. width/height=0)
+                        await specific.execute_script("this.click()")
                 # Treat single checkbox differently
                 elif input_type == "checkbox":
                     # Handle boolean toggles (allows unchecking!)
@@ -289,7 +281,7 @@ async def fill_form(form: WebElement, form_data: dict[str, str]):
                     result = await input_element.execute_script("return this.checked", return_by_value=True)
                     currently_checked = script_value(result)
                     if bool(currently_checked) != should_check:
-                        await input_element.click()
+                        await input_element.execute_script("this.click()")
                 else:
                     # Raise error for radios so you don't accidentally select the wrong one
                     raise ValueError(f"Radio option '{value}' not found for name='{name}'")
@@ -333,8 +325,8 @@ async def submit_form(tab: Tab, form: WebElement):
 
     # Assume successful form submission hides the form, including redirects to thank you pages
     # if form is detached from DOM is_visible will raise or return False
-    visible, err = await safe_call(lambda: form.is_visible(), log_exception=False) 
-    if err or not visible:
+    await form.scroll_into_view()  # Ensure the form is in view to get accurate visibility status
+    if not await form.is_visible():
         log_info("Form submission appears successful (form is no longer visible).")
         return
 
