@@ -59,6 +59,6 @@ async def solve_recaptcha(recaptcha_iframe: WebElement) -> bool:
         # Wait until recaptcha gets response asynchronously after click
         await wait_until(lambda: recaptcha_already_solved(recaptcha_iframe), timeout=15)
         return True
-    except Exception:
-        log_error('Failed to solve ReCaptcha within timeout.')
+    except Exception as e:
+        log_error(f'Failed to solve ReCaptcha within timeout.\n{e}')
         return False

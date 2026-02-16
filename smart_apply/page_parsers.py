@@ -127,7 +127,7 @@ async def extract_emails(tab: Tab) -> tuple[list[str], list[str]]:
     "1. 'job_emails': ONLY addresses specifically intended for submitting resumes or contacting recruiters (e.g., careers@, jobs@, recruitment@, hr@, talent@, join@). "
     "EXCLUDE administrative HR functions like 'verifications@', 'benefits@', or 'payroll@'.\n"
     "2. 'contact_emails': Include ONLY general inquiry addresses. "
-    "This is a STRICT WHITELIST. Only include: info@, contact@, hello@.\n"
+    "This is a STRICT WHITELIST. Only include: info@, contact@, hello@, hi@.\n"
     "Do NOT include variations like 'office@', 'support@', or 'customer@' here.\n\n"
     "STRICT EXCLUSIONS (Do not include these in any category):\n"
     "- Technical/Automated: support@, help@, webmaster@, noreply@, dev@, admin@\n"
