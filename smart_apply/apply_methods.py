@@ -84,7 +84,6 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
     applicant.message = applicant.message.replace("{company_name}", company_name)
 
     ctx.applicant = applicant
-    
     for link in links:  
         log_info(f"Visiting page: {link}")
         applied = await apply_on_page(ctx, link)
@@ -120,8 +119,7 @@ async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyMethod | None:
                 log_info(f"Applied via form at {url}")
                 return 'form'
             case Err(e):
-                log_failed_form(url)
-                log_error(f"{e}")
+                log_failed_form(url, e)
 
     # Priority 3: fallback to generic contact email
     if contact_emails:
@@ -254,7 +252,11 @@ async def fill_form(form: WebElement, form_data: dict[str, str]):
         tag = (input_element.tag_name or '').lower()
         
         await input_element.scroll_into_view()  # Ensure the element is in view before interacting
-        
+
+        # https://github.com/autoscrape-labs/pydoll/issues/274
+        # Wait until the element is visible to avoid issues with interactions (e.g., typing into an invisible input can fail)
+        await input_element.wait_until(is_visible=True, timeout=30)
+
         if tag == "input":
             input_type = input_element.get_attribute('type') or 'text'
             if input_type in ("checkbox", "radio"):

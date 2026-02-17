@@ -140,11 +140,11 @@ def log_sent_email(email: str):
     log_info(f"Sent email to {email}")
 
 
-def log_failed_form(url: str):
+def log_failed_form(url: str, error: Exception):
     logging.getLogger('smart_apply.failed_forms').info(url)
-    log_warning(f"Failed to submit form at {url}")
+    log_error(f"Failed to submit form at {url}: {error}")
 
 
 def log_failed_url(url: str):
     logging.getLogger('smart_apply.failed_urls').info(url)
-    log_warning(f"Failed URL: {url}")
+    log_error(f"Failed URL: {url}")
