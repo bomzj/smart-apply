@@ -45,7 +45,7 @@ async def main():
     }
 
     options = ChromiumOptions()
-    options.add_argument(f'--user-data-dir={BROWSER_DATA_DIR}')
+    #options.add_argument(f'--user-data-dir={BROWSER_DATA_DIR}')
     options.add_argument('--start-maximized')
 
     # Start the live stats display (wraps all processing)

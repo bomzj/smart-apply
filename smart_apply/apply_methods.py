@@ -20,7 +20,7 @@ from smart_apply.gmail import send_email_from_me
 from smart_apply.captcha_solvers.recaptcha import *
 from smart_apply.captcha_solvers.cloudflare_challenge import *
 from smart_apply.config import settings
-from smart_apply.browser_utils import script_value, wait_until
+from smart_apply.browser_utils import script_value, wait_for_network_idle, wait_until
 from smart_apply.logger import log_info, log_error, log_warning, log_sent_email, log_failed_form
 
 
@@ -51,14 +51,10 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
     await tab.go_to(start_url, timeout=30)
     
     # Wait for Cloudflare challenge to be auto-solved by Pydoll if present
-    if await cf_challenge(tab):
-        try:
-            log_info(f"Cloudflare challenge detected, waiting to be solved...")
-            await wait_until(lambda: no_cf_challenge(tab))
-            log_info(f"Cloudflare challenge solved.")
-        except:
-            log_error(f"Failed to solve Cloudflare challenge. Skipping this site.")
-            return None
+    try:
+        await wait_until_cloudflare_resolved(tab)
+    except Exception as e:
+        raise ValueError(f"Failed to solve Cloudflare challenge.") from e
     
     await tab.disable_auto_solve_cloudflare_captcha()
 
