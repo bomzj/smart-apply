@@ -755,7 +755,7 @@ wheels = [
 
 [[package]]
 name = "langfuse"
-version = "3.14.1"
+version = "3.14.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backoff" },
@@ -769,9 +769,9 @@ dependencies = [
     { name = "requests" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/24/7a/ddd8df7f2c5d8c2112a8b20fa88b2513917e2c25d2ef87034c0927f87596/langfuse-3.14.1.tar.gz", hash = "sha256:404a6104cd29353d7829aa417ec46565b04917e5599afdda96c5b0865f4bc991", size = 234530, upload-time = "2026-02-09T15:37:45.994Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/86/44/1da5d5fb5a07949cd5bd53cabef1dafc1af272792f51277e6226eb96ceaa/langfuse-3.14.3.tar.gz", hash = "sha256:6d1529ae88d6f2ab74e255bb79537ae37aa1a576a1ec78f4643a7a6a00502f12", size = 235121, upload-time = "2026-02-17T17:43:25.903Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/80/b9/e8ac3072469737358975da66ec4218dc1cee0051555dd4665b3e34a28420/langfuse-3.14.1-py3-none-any.whl", hash = "sha256:17bed605dbfc9947cbd1738a715f6d27c1b80b6da9f2946586171958fa5820d0", size = 420336, upload-time = "2026-02-09T15:37:44.381Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/cf/708c3aefa7687995eb4d3ae556e1adcaf1c4e99f5315810e9809c8cd9219/langfuse-3.14.3-py3-none-any.whl", hash = "sha256:e65f4168279dbc45b800021c59855a3268cf85d81e3275f7015441bf7f365bcb", size = 420438, upload-time = "2026-02-17T17:43:24.097Z" },
 ]
 
 [[package]]
@@ -1326,7 +1326,7 @@ wheels = [
 
 [[package]]
 name = "pydoll-python"
-version = "2.19.0"
+version = "2.20.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -1334,9 +1334,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/36/74/5f0dada8ec154c1d7d4bc213e20520e3e849995ff16dc1787e14546c0221/pydoll_python-2.19.0.tar.gz", hash = "sha256:f2a9e519cba415b00a7632a4238f2bf4f2822f96fda305019ea454b7325c27af", size = 219052, upload-time = "2026-02-13T01:06:42.951Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/44/5db36ca005bb5ce1896779279a02b79726497e252b97102a8e6d7c81d5cb/pydoll_python-2.20.1.tar.gz", hash = "sha256:26dc8f080941a6b532aa8a6e753bf83a0a0784d8e63667bb451654c2bcac8db5", size = 229023, upload-time = "2026-02-16T15:53:10.611Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a6/88/37ca59b4f4be3f48d5cd14af6cb4639cc9b366e5d1e7297b682f6d7c574b/pydoll_python-2.19.0-py3-none-any.whl", hash = "sha256:22678bf01b826f40ab36a1794c9842323dcc53d29ab8f6ea16b2176a928fefee", size = 252500, upload-time = "2026-02-13T01:06:44.027Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/28/cf03790c299dd9f271ae9c4356328b1df89d287daa8d6af8920a5fa0894e/pydoll_python-2.20.1-py3-none-any.whl", hash = "sha256:34188a4c8ad6a95707e68a92a4eb23be972e9ee106907982ad5f39ed5bf4dd93", size = 264205, upload-time = "2026-02-16T15:53:13.635Z" },
 ]
 
 [[package]]
