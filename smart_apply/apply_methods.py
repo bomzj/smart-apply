@@ -20,7 +20,7 @@ from smart_apply.gmail import send_email_from_me
 from smart_apply.captcha_solvers.recaptcha import *
 from smart_apply.captcha_solvers.cloudflare_challenge import *
 from smart_apply.config import settings
-from smart_apply.browser_utils import script_value
+from smart_apply.browser_utils import script_value, wait_until
 from smart_apply.logger import log_info, log_error, log_warning, log_sent_email, log_failed_form
 
 
@@ -182,21 +182,16 @@ async def apply_via_form(ctx: ApplyContext, form: WebElement):
     
     await fill_form(form, form_data)
     
-    # 1. Detect ReCaptcha
-    recaptcha_detected = await page_has_recaptcha(tab)
-    recaptcha = await find_recaptcha_with_checkbox(form) if recaptcha_detected else None
-
-    if recaptcha:
-        # 2. Proceed with solving
-        current_url = await tab.current_url
-        log_info(f"ReCaptcha detected on {current_url}, attempting to solve...")
-        solved = await solve_recaptcha(recaptcha)
-
-        # 3. Early exit if solving fails
-        if not solved:
-            raise ValueError(f"Failed to solve ReCaptcha on {current_url}.")
-
-        log_info(f"ReCaptcha solved on {current_url}.")
+    current_url = await tab.current_url
+    recaptcha_result = await solve_recaptcha_if_present(form, tab)
+    
+    match recaptcha_result:
+        case Ok("not_detected"):
+            pass
+        case Ok("solved"):
+            log_info(f"ReCaptcha solved on {current_url}.")
+        case Err(e):
+            raise ValueError(f"Failed to solve ReCaptcha on {current_url}.") from e
 
     return await submit_form(tab, form)
 

@@ -6,7 +6,7 @@ Smart Apply is your AI assistant that automates the process of applying to jobs 
 It uses **LLM** to analyze websites, understand forms, and automatically:
 - Fill out job application forms
 - Send emails via Gmail API
-- Bypasses Cloudflare protection and the Google reCAPTCHA "I'm not a robot" checkbox challenge.
+- Bypasses Cloudflare protection and the Google reCAPTCHA challenge.
 
 ## Setup
 
@@ -16,7 +16,12 @@ It uses **LLM** to analyze websites, understand forms, and automatically:
 
 1. Ensure you have [uv](https://docs.astral.sh/uv/) installed.
 
-2. Install dependencies:
+2. Install `ffmpeg` on your system.
+	- Ubuntu/Debian: `sudo apt-get install ffmpeg`
+	- macOS (Homebrew): `brew install ffmpeg`
+	- Windows (winget): `winget install ffmpeg`
+
+3. Install dependencies:
 
 ```bash
 uv sync

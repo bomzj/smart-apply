@@ -8,8 +8,8 @@ import pytest_asyncio
 async def browser():
     """Start Chrome once per session"""
     options = ChromiumOptions()
-    data_dir = Path(__file__).resolve().parent.parent / ".browser_session_data"
-    options.add_argument(f'--user-data-dir={data_dir}')
+    #data_dir = Path(__file__).resolve().parent.parent / ".browser_session_data"
+    #options.add_argument(f'--user-data-dir={data_dir}')
     options.add_argument('--start-maximized')
     async with Chrome(options=options) as browser:
         await browser.start()

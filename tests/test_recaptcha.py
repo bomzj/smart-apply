@@ -36,30 +36,25 @@ async def test_page_has_recaptcha(tab, url, expected):
 async def test_find_recaptcha_with_checkbox(tab, url, checkbox_visible):
     await tab.go_to(url)
     container = await tab.query('.g-recaptcha', raise_exc=False)
-    recaptcha = await find_recaptcha_with_checkbox(container) if container else None
+    recaptcha = await recaptcha_within_container(container) if container else None
     assert bool(recaptcha) is checkbox_visible
     await tab.close()
     
 
 @pytest.mark.parametrize(
-    "url, expected",
+    "url",
     [
-        (RECAPTCHA_V2_URL, True),
+        "https://www.google.com/recaptcha/api2/demo",
         # (RECAPTCHA_V2_INVISIBLE_URL, False),
         # (RECAPTCHA_V3_URL, False),
     ]
 )
-async def test_solve_recaptcha(tab: Tab, url: str, expected: bool):
+async def test_solve_recaptcha_if_present(tab: Tab, url: str):
     await tab.go_to(url)
-    
-    container = await tab.query('.g-recaptcha', raise_exc=False)
-    recaptcha = await find_recaptcha_with_checkbox(container)
-    
-    if expected:
-        assert recaptcha is not None
-        solved = await solve_recaptcha(recaptcha)
-        assert solved
-    else:
-        assert recaptcha is None
+    form = await tab.find(tag_name='form')
+    res = await solve_recaptcha_if_present(form, tab)
+    assert res.ok == 'solved'
+    solved_result = await recaptcha_solved(tab)
+    assert solved_result
     
     await tab.close()

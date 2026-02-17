@@ -5,6 +5,7 @@ FROM python:3.14.2-slim-noble
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-driver \
+    ffmpeg \
     fonts-liberation \
     libasound2 \
     libnss3 \
