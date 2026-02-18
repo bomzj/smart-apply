@@ -1326,7 +1326,7 @@ wheels = [
 
 [[package]]
 name = "pydoll-python"
-version = "2.20.1"
+version = "2.20.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -1334,9 +1334,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c8/44/5db36ca005bb5ce1896779279a02b79726497e252b97102a8e6d7c81d5cb/pydoll_python-2.20.1.tar.gz", hash = "sha256:26dc8f080941a6b532aa8a6e753bf83a0a0784d8e63667bb451654c2bcac8db5", size = 229023, upload-time = "2026-02-16T15:53:10.611Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1b/f6/c216039b9be1723ca2aba7c7cd789abf88b12f51f77d9300b557aa952b92/pydoll_python-2.20.2.tar.gz", hash = "sha256:0eda6091fc26d97863402b01d90b7176c7e3c3454a2c4e1d13f9831f4d25483c", size = 229027, upload-time = "2026-02-18T03:08:30.002Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/28/cf03790c299dd9f271ae9c4356328b1df89d287daa8d6af8920a5fa0894e/pydoll_python-2.20.1-py3-none-any.whl", hash = "sha256:34188a4c8ad6a95707e68a92a4eb23be972e9ee106907982ad5f39ed5bf4dd93", size = 264205, upload-time = "2026-02-16T15:53:13.635Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/bc/408908bd7f7264f8988b8f057f0ac776ffad4e422d5075d8119db75592d2/pydoll_python-2.20.2-py3-none-any.whl", hash = "sha256:91cd02f9792d671ea03c8037893805457d3940255191b3d9227a3988aa8741c3", size = 264209, upload-time = "2026-02-18T03:08:31.39Z" },
 ]
 
 [[package]]
@@ -1528,7 +1528,7 @@ requires-dist = [
     { name = "openai", specifier = ">=2.16.0" },
     { name = "openinference-instrumentation-openai", specifier = ">=0.1.41" },
     { name = "openinference-instrumentation-smolagents", specifier = ">=0.1.21" },
-    { name = "pydoll-python", specifier = ">=2.17.0" },
+    { name = "pydoll-python", specifier = ">=2.20.1" },
     { name = "pydub", specifier = ">=0.25.1" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-asyncio", specifier = ">=0.25.3" },

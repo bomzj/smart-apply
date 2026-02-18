@@ -18,7 +18,7 @@ dependencies = [
     "pytest>=9.0.2",
     "pytest-asyncio>=0.25.3",
     "rich>=14.3.1",
-    "pydoll-python>=2.20.1",
+    "pydoll-python>=2.20.2",
     "pydub>=0.25.1",
     "speechrecognition>=3.14.5",
 ]
