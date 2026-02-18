@@ -24,7 +24,7 @@ from smart_apply.browser_utils import script_value, wait_for_network_idle, wait_
 from smart_apply.logger import log_info, log_error, log_warning, log_sent_email, log_failed_form
 
 
-type ApplyMethod = Literal['email', 'form']
+type ApplyStatus = Literal['applied_via_email', 'applied_via_form', 'no_links', 'failed_attempt']
 
 @dataclass
 class Applicant:
@@ -41,7 +41,7 @@ class ApplyContext:
 
 
 @safe_fn
-async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None:
+async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyStatus | None:
     tab = ctx.tab
     host = hostname(start_url)
 
@@ -62,13 +62,12 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
     links = await extract_links_to_visit(tab)
     
     if not links:
-        log_warning(f"No links found on the page at {host}.")
-        return None
+        return 'no_links'
 
     # Limit to first 5 links to avoid excessive navigation
     links = links[:5]
     formatted_links = json.dumps(links, indent=2, ensure_ascii=False)
-    log_info(f"Extracted {len(links)} relevant links:\n{formatted_links}")
+    log_info(f"Extracted {len(links)} relevant links to visit:\n{formatted_links}")
 
     applicant = Applicant(
         full_name=settings.applicant_name,
@@ -84,15 +83,19 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
     applicant.message = applicant.message.replace("{company_name}", company_name)
 
     ctx.applicant = applicant
+    failed_attempt = False
     for link in links:  
-        applied = await apply_on_page(ctx, link)
-        if applied: 
-            return applied
+        status = await apply_on_page(ctx, link)
+        match status:
+            case 'applied_via_email' | 'applied_via_form':
+                return status
+            case 'failed_attempt':
+                failed_attempt = True
 
-    return None
+    return 'failed_attempt' if failed_attempt else None
 
 
-async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyMethod | None:
+async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyStatus | None:
     '''Try to apply to job on the page by sending email or submitting form'''
     tab = ctx.tab
 
@@ -103,7 +106,7 @@ async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyMethod | None:
     # Priority 1: apply via job email
     if job_emails:
         apply_via_email(ctx, job_emails[0])
-        return 'email'
+        return 'applied_via_email'
 
     # Priority 2: apply via form
     form = await job_or_contact_form(tab)
@@ -113,16 +116,16 @@ async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyMethod | None:
         match res:
             case Ok():
                 log_info(f"Applied via form at {url}")
-                return 'form'
+                return 'applied_via_form'
             case Err(e):
                 log_failed_form(url, e)
 
     # Priority 3: fallback to generic contact email
     if contact_emails:
         apply_via_email(ctx, contact_emails[0])
-        return 'email'
+        return 'applied_via_email'
     
-    return None
+    return 'failed_attempt' if form else None
 
 
 async def job_or_contact_form(tab: Tab) -> WebElement | None:

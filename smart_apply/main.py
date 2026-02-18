@@ -7,7 +7,7 @@ from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 
 from smart_apply.result import Err, Ok
-from smart_apply.apply_methods import Applicant, ApplyContext, apply_on_site, hostname
+from smart_apply.apply_methods import ApplyContext, apply_on_site, hostname
 from smart_apply.config import settings
 from smart_apply.logger import setup_logging, set_host, log_info, log_error, log_failed_url, log_blank_line, console
 
@@ -74,6 +74,11 @@ async def main():
                                 stats["sent_emails"] += 1
                             case 'form':
                                 stats["submitted_forms"] += 1
+                            case 'no_links':
+                                log_info(f"No relevant links found on {host}.")
+                            case 'failed_attempt':
+                                pass
+                                #log_info(f"An attempt was made to apply on {host}, but it was not successful.")
                             case _:
                                 log_info(f"No email or form application were found on website {host}.")
                     
@@ -90,7 +95,7 @@ async def main():
                                 log_error("Exiting due to potential Gmail API limit has reached.")
                                 exit(0)
                             case _:
-                                log_error(f"Failed to apply on website: {host}\n{e}")
+                                log_error(f"Failed to apply on website {host}: {e}")
                                 log_failed_url(url)
             
                 stats["processed_sites"] += 1
