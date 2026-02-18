@@ -11,7 +11,7 @@ LOGS_DIR = PROJECT_ROOT / 'logs'
 
 console = Console(stderr=True)
 
-_current_host: ContextVar[str] = ContextVar('current_host', default='unknown')
+_current_host: ContextVar[str] = ContextVar('current_host', default='')
 
 
 def set_host(host: str):
@@ -43,10 +43,20 @@ class _RichConsoleHandler(logging.Handler):
             self.handleError(record)
 
 
+class _FileFormatter(logging.Formatter):
+    """File formatter that includes hostname only when set."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        hostname = getattr(record, 'hostname', '')
+        if hostname:
+            record.msg = f"{hostname} {record.msg}"
+        return super().format(record)
+
+
 class RichColoredFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         record.asctime = self.formatTime(record, self.datefmt)
-        hostname = getattr(record, 'hostname', 'unknown')
+        hostname = getattr(record, 'hostname', '')
 
         color = 'white'
         if record.levelno == logging.INFO:
@@ -58,10 +68,11 @@ class RichColoredFormatter(logging.Formatter):
         elif record.levelno == logging.DEBUG:
             color = 'bright_magenta'
 
+        host_part = f" [yellow]{hostname}[/yellow]" if hostname else ""
         prefix = (
             f"[white]{record.asctime}[/white] "
-            f"[{color}]{record.levelname:<8}[/{color}] "
-            f"[yellow]{hostname}[/yellow]"
+            f"[{color}]{record.levelname:<8}[/{color}]"
+            f"{host_part}"
         )
         message = record.getMessage()
         formatted = f"{prefix}    {message}"
@@ -87,7 +98,7 @@ def setup_logging():
     if app_logger.handlers:
         return
 
-    file_fmt = logging.Formatter('%(asctime)s %(levelname)s %(hostname)s %(message)s', datefmt='%H:%M:%S')
+    file_fmt = _FileFormatter('%(asctime)s %(levelname)s %(message)s', datefmt='%H:%M:%S')
     console_fmt = RichColoredFormatter(datefmt='%H:%M:%S')
 
     hostname_filter = _HostnameFilter()

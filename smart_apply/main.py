@@ -7,7 +7,11 @@ from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 
 from smart_apply.result import Err, Ok
-from smart_apply.apply_methods import ApplyContext, apply_on_site, hostname
+from smart_apply.apply_methods import (
+    ApplyContext, AppliedViaEmail, AppliedViaForm, 
+    NoLinksFound, FailedAttempt, NoApplicationMethod,
+    apply_on_site, hostname
+)
 from smart_apply.config import settings
 from smart_apply.logger import setup_logging, set_host, log_info, log_error, log_failed_url, log_blank_line, console
 
@@ -68,18 +72,17 @@ async def main():
                 res = await apply_on_site(ctx, url)
                 
                 match res:
-                    case Ok(method):
-                        match method:
-                            case 'email':
+                    case Ok(status):
+                        match status:
+                            case AppliedViaEmail(email):
                                 stats["sent_emails"] += 1
-                            case 'form':
+                            case AppliedViaForm(url):
                                 stats["submitted_forms"] += 1
-                            case 'no_links':
+                            case NoLinksFound():
                                 log_info(f"No relevant links found on {host}.")
-                            case 'failed_attempt':
+                            case FailedAttempt():
                                 pass
-                                #log_info(f"An attempt was made to apply on {host}, but it was not successful.")
-                            case _:
+                            case NoApplicationMethod():
                                 log_info(f"No email or form application were found on website {host}.")
                     
                     case Err(e):
@@ -102,6 +105,7 @@ async def main():
                 log_info(f"Finished processing website.")
                 live.update(stats_panel(stats))
                 await tab.close()
+                set_host('')
 
             log_info("All websites have been processed.")
 
