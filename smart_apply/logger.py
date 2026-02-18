@@ -77,6 +77,9 @@ def setup_logging():
     log_dir = LOGS_DIR / today
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    # Silence all third-party loggers by raising root level
+    logging.getLogger().setLevel(logging.CRITICAL)
+
     app_logger = logging.getLogger('smart_apply')
     app_logger.setLevel(logging.INFO)
 
@@ -84,7 +87,7 @@ def setup_logging():
     if app_logger.handlers:
         return
 
-    file_fmt = logging.Formatter('[%(asctime)s] [%(levelname)s] [%(hostname)s] %(message)s', datefmt='%H:%M:%S')
+    file_fmt = logging.Formatter('%(asctime)s %(levelname)s %(hostname)s %(message)s', datefmt='%H:%M:%S')
     console_fmt = RichColoredFormatter(datefmt='%H:%M:%S')
 
     hostname_filter = _HostnameFilter()
