@@ -49,7 +49,7 @@ class _FileFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         hostname = getattr(record, 'hostname', '')
         if hostname:
-            record.msg = f"{hostname} {record.msg}"
+            record.msg = f"{hostname}   {record.msg}"
         return super().format(record)
 
 
@@ -75,7 +75,7 @@ class RichColoredFormatter(logging.Formatter):
             f"{host_part}"
         )
         message = record.getMessage()
-        formatted = f"{prefix}    {message}"
+        formatted = f"{prefix}   {message}"
 
         if record.exc_info:
             formatted += f"\n{self.formatException(record.exc_info)}"
@@ -98,7 +98,7 @@ def setup_logging():
     if app_logger.handlers:
         return
 
-    file_fmt = _FileFormatter('%(asctime)s %(levelname)s %(message)s', datefmt='%H:%M:%S')
+    file_fmt = _FileFormatter('%(asctime)s  %(levelname)s  %(message)s', datefmt='%H:%M:%S')
     console_fmt = RichColoredFormatter(datefmt='%H:%M:%S')
 
     hostname_filter = _HostnameFilter()
