@@ -85,13 +85,9 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyMethod | None
 
     ctx.applicant = applicant
     for link in links:  
-        log_info(f"Visiting page: {link}")
         applied = await apply_on_page(ctx, link)
         if applied: 
             return applied
-        else:
-            current_url = await tab.current_url
-            log_info(f"No application method found on this page {current_url}.")
 
     return None
 
