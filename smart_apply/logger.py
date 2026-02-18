@@ -122,6 +122,18 @@ def setup_logging():
 
 # ── Convenience functions ──
 
+def log_blank_line():
+    """Write a blank line to every handler of the app logger (console + file)."""
+    logger = logging.getLogger('smart_apply')
+    for handler in logger.handlers:
+        match handler:
+            case _RichConsoleHandler():
+                handler._console.print()
+            case _ if hasattr(handler, 'stream'):
+                handler.stream.write('\n')
+                handler.stream.flush()
+
+
 def log_info(msg: str):
     logging.getLogger('smart_apply').info(msg)
 

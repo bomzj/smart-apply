@@ -9,7 +9,7 @@ from pydoll.browser.options import ChromiumOptions
 from smart_apply.result import Err, Ok
 from smart_apply.apply_methods import Applicant, ApplyContext, apply_on_site, hostname
 from smart_apply.config import settings
-from smart_apply.logger import setup_logging, set_host, log_info, log_error, log_failed_url, console
+from smart_apply.logger import setup_logging, set_host, log_info, log_error, log_failed_url, log_blank_line, console
 
 # Rich imports for fixed stats display
 from rich.live import Live
@@ -57,7 +57,8 @@ async def main():
                 host = hostname(url)
                 set_host(host)
 
-                log_info(f"Processing website...")
+                log_blank_line()
+                log_info(f"Processing website: {host}...")
                 
                 # Create a new tab for each website to ensure a clean state
                 tab = await browser.new_tab()
