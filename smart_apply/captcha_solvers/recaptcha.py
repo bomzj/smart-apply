@@ -27,11 +27,16 @@ async def recaptcha_within_container(container: WebElement) -> bool:
     """
     try:
         iframe = await container.query('iframe[src*="recaptcha"]', timeout=15)
-        
+       
         if not iframe:
             return False
         
+        # TODO: is this line needed?
         await iframe.wait_until(is_visible=True, timeout=15)
+
+         # Check if it's visible v2 recaptcha with checkbox (not invisible or v3)
+        await iframe.query('.recaptcha-checkbox-checkmark')
+
         return True
     except (WaitElementTimeout, ElementNotFound):
         return False
