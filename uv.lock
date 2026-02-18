@@ -1528,7 +1528,7 @@ requires-dist = [
     { name = "openai", specifier = ">=2.16.0" },
     { name = "openinference-instrumentation-openai", specifier = ">=0.1.41" },
     { name = "openinference-instrumentation-smolagents", specifier = ">=0.1.21" },
-    { name = "pydoll-python", specifier = ">=2.20.1" },
+    { name = "pydoll-python", specifier = ">=2.20.2" },
     { name = "pydub", specifier = ">=0.25.1" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-asyncio", specifier = ">=0.25.3" },
