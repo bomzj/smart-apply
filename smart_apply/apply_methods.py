@@ -253,10 +253,6 @@ async def fill_form(form: WebElement, form_data: dict[str, str]):
         
         await input_element.scroll_into_view()  # Ensure the element is in view before interacting
 
-        # https://github.com/autoscrape-labs/pydoll/issues/274
-        # Wait until the element is visible to avoid issues with interactions (e.g., typing into an invisible input can fail)
-        await input_element.wait_until(is_visible=True, timeout=30)
-
         if tag == "input":
             input_type = input_element.get_attribute('type') or 'text'
             if input_type in ("checkbox", "radio"):
@@ -284,8 +280,6 @@ async def fill_form(form: WebElement, form_data: dict[str, str]):
                 # Ensure element is focused, since email inputs might fail without focus
                 await input_element.click()
                 await input_element.type_text(value, True)
-                # await input_element.clear()
-                #await input_element.insert_text(str(value))
         elif tag == "textarea":
             await input_element.clear()
             await input_element.insert_text(str(value))
