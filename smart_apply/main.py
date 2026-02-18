@@ -45,7 +45,6 @@ async def main():
     }
 
     options = ChromiumOptions()
-    #options.add_argument(f'--user-data-dir={BROWSER_DATA_DIR}')
     options.add_argument('--start-maximized')
 
     # Start the live stats display (wraps all processing)
@@ -98,7 +97,7 @@ async def main():
                 live.update(stats_panel(stats))
                 await tab.close()
 
-    log_info("All websites have been processed.")
+            log_info("All websites have been processed.")
 
 
 def stats_panel(stats: dict[str, int]) -> Padding:
