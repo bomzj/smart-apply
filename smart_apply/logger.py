@@ -68,14 +68,16 @@ class RichColoredFormatter(logging.Formatter):
         elif record.levelno == logging.DEBUG:
             color = 'bright_magenta'
 
-        host_part = f" [yellow]{hostname}[/yellow]" if hostname else ""
-        prefix = (
-            f"[white]{record.asctime}[/white] "
-            f"[{color}]{record.levelname:<8}[/{color}]"
-            f"{host_part}"
-        )
+        # Mimic the 3 spaces _FileFormatter adds when a hostname is present
+        host_part = f"[yellow]{hostname}[/yellow]   " if hostname else ""
         message = record.getMessage()
-        formatted = f"{prefix}   {message}"
+        
+        # Assemble with standard double-spacing to match: '%(asctime)s  %(levelname)s  %(message)s'
+        formatted = (
+            f"[white]{record.asctime}[/white]  "
+            f"[{color}]{record.levelname}[/{color}]  "
+            f"{host_part}{message}"
+        )
 
         if record.exc_info:
             formatted += f"\n{self.formatException(record.exc_info)}"
