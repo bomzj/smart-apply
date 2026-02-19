@@ -21,11 +21,13 @@ It uses **LLM** to analyze websites, understand forms, and automatically:
 	- macOS (Homebrew): `brew install ffmpeg`
 	- Windows (winget): `winget install ffmpeg`
 
-3. Install dependencies:
+3. Install dependencies and the project in editable/development mode:
 
 ```bash
 uv sync
 ```
+
+> This also installs `smart_apply` as an editable package, which is required for the absolute imports used throughout the codebase.
 
 ### Option 2 - With Docker
 
