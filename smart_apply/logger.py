@@ -163,16 +163,13 @@ def log_debug(msg: str):
     logging.getLogger('smart_apply').debug(msg)
 
 
-def log_sent_email(email: str):
+def record_sent_email(email: str):
     logging.getLogger('smart_apply.sent_emails').info(email)
-    log_info(f"Sent email to {email}")
 
 
-def log_failed_form(url: str, error: Exception):
+def record_failed_form(url: str):
     logging.getLogger('smart_apply.failed_forms').info(url)
-    log_error(f"Failed to submit form at {url}: {error}")
 
 
-def log_failed_url(url: str):
+def record_failed_url(url: str):
     logging.getLogger('smart_apply.failed_urls').info(url)
-    log_error(f"Failed URL: {url}")

@@ -21,7 +21,7 @@ from smart_apply.captcha_solvers.recaptcha import *
 from smart_apply.captcha_solvers.cloudflare_challenge import *
 from smart_apply.config import settings
 from smart_apply.browser_utils import script_value, wait_for_network_idle, wait_until
-from smart_apply.logger import log_info, log_error, log_warning, log_sent_email, log_failed_form
+from smart_apply.logger import log_info, log_error, log_warning, record_sent_email, record_failed_form
 
 
 @dataclass
@@ -138,7 +138,8 @@ async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyStatus:
                 log_info(f"Applied via form at {url}")
                 return AppliedViaForm(url)
             case Err(e):
-                log_failed_form(url, e)
+                log_error(f"Failed to submit form at {url}: {e}")
+                record_failed_form(url)
 
     # Priority 3: fallback to generic contact email
     if contact_emails:
@@ -402,7 +403,10 @@ def apply_via_email(ctx: ApplyContext, email_to: str) -> bool:
         log_error(f"Failed to send email to {email_to}: {error_msg}")
         return False
     
-    log_sent_email(email_to)
+    
+    log_info(f"Sent email to {email_to}")
+    record_sent_email(email_to)
+
     return True
 
 
