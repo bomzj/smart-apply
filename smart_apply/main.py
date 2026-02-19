@@ -12,8 +12,18 @@ from smart_apply.apply_methods import (
     NoLinksFound, FailedAttempt, NoApplicationMethod,
     apply_on_site, hostname
 )
+from smart_apply.gmail import gmail_quota_exceeded
 from smart_apply.config import settings
-from smart_apply.logger import setup_logging, set_host, log_info, log_error, log_failed_url, log_blank_line, console
+from smart_apply.logger import (
+    setup_logging, 
+    set_host, 
+    log_info, 
+    log_warning, 
+    log_error, 
+    log_failed_url, 
+    log_blank_line, 
+    console
+)
 
 # Rich imports for fixed stats display
 from rich.live import Live
@@ -88,18 +98,13 @@ async def main():
                     case Err(e):
                         match e:
                             # TODO: handle the case when site is not available
-                            # handle gmail 429 limit exceeded error specifically
-                            case HttpError() as e:
-                                log_error(f"Error sending email: {e}")
-                                if e.content:
-                                    error_json = json.loads(e.content.decode('utf-8'))
-                                    log_error(f"API error details: {error_json}")
-                                log_failed_url(url)
-                                log_error("Exiting due to potential Gmail API limit has reached.")
+                            case HttpError() if gmail_quota_exceeded(e):
+                                log_error(f"Gmail API rate limit reached: {e._get_reason()}")
                                 exit(0)
                             case _:
                                 log_error(f"Failed to apply on website {host}: {e}")
-                                log_failed_url(url)
+                                
+                        log_failed_url(url)
             
                 stats["processed_sites"] += 1
                 log_info(f"Finished processing website.")

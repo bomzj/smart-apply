@@ -9,6 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.auth.credentials import TokenState
 from google.oauth2.credentials import Credentials
+from googleapiclient.errors import HttpError
 
 # Gmail API scopes, we need to send emails only
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
@@ -135,6 +136,23 @@ def send_email_from_me(to, subject, body, attachments=None):
         userId=sender, body=email).execute()
     last_send_time = time.time()
     return res
+
+
+def gmail_quota_exceeded(e: HttpError) -> bool:
+    """Check if an HttpError is a Gmail rate-limit / quota error."""
+    if e.resp.status == 429:
+        return True
+    if e.resp.status == 403 and e.content:
+        try:
+            details = json.loads(e.content.decode('utf-8'))
+            reasons = [
+                err.get('reason', '')
+                for err in details.get('error', {}).get('errors', [])
+            ]
+            return any(r in ('rateLimitExceeded', 'userRateLimitExceeded', 'dailyLimitExceeded') for r in reasons)
+        except (json.JSONDecodeError, AttributeError):
+            pass
+    return False
 
 
 # To renew token.json only (no email sent)

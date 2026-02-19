@@ -15,7 +15,8 @@ from smart_apply.page_parsers import (
     element_outer_html
 )
 from smart_apply.result import Err, Ok, safe_call, safe_fn
-from smart_apply.gmail import send_email_from_me
+from googleapiclient.errors import HttpError
+from smart_apply.gmail import send_email_from_me, gmail_quota_exceeded
 from smart_apply.captcha_solvers.recaptcha import *
 from smart_apply.captcha_solvers.cloudflare_challenge import *
 from smart_apply.config import settings
@@ -124,8 +125,8 @@ async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyStatus:
     
     # Priority 1: apply via job email
     if job_emails:
-        apply_via_email(ctx, job_emails[0])
-        return AppliedViaEmail(job_emails[0])
+        if apply_via_email(ctx, job_emails[0]):
+            return AppliedViaEmail(job_emails[0])
 
     # Priority 2: apply via form
     form = await job_or_contact_form(tab)
@@ -141,10 +142,12 @@ async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyStatus:
 
     # Priority 3: fallback to generic contact email
     if contact_emails:
-        apply_via_email(ctx, contact_emails[0])
-        return AppliedViaEmail(contact_emails[0])
+        if apply_via_email(ctx, contact_emails[0]):
+            return AppliedViaEmail(contact_emails[0])
+        
+    attempt_failed = job_emails or contact_emails or form
     
-    return FailedAttempt() if form else NoApplicationMethod()
+    return FailedAttempt() if attempt_failed else NoApplicationMethod()
 
 
 async def job_or_contact_form(tab: Tab) -> WebElement | None:
@@ -386,10 +389,21 @@ async def submit_form(tab: Tab, form: WebElement):
         raise ValueError(res['error'])
 
 
-def apply_via_email(ctx: ApplyContext, email_to: str):
+def apply_via_email(ctx: ApplyContext, email_to: str) -> bool:
+    """Send application email. Returns True on success, False on non-fatal failure.
+    Re-raises HttpError when Gmail rate limit is hit so the program can exit."""
     app = ctx.applicant
-    send_email_from_me(email_to, app.subject, app.message, [app.pdf_resume])
+    try:
+        send_email_from_me(email_to, app.subject, app.message, [app.pdf_resume])
+    except HttpError as e:
+        if gmail_quota_exceeded(e):
+            raise
+        error_msg = e._get_reason() if hasattr(e, '_get_reason') else str(e)
+        log_error(f"Failed to send email to {email_to}: {error_msg}")
+        return False
+    
     log_sent_email(email_to)
+    return True
 
 
 # Url utilities
