@@ -1,5 +1,5 @@
 import pytest
-from smart_apply.page_parsers import html_to_plain_text, infer_company_name
+from smart_apply.page_parsers import html_to_plain_text, infer_company_name, email_valid
 from pydoll.browser.tab import Tab
 
 def test_html_to_plain_text():
@@ -42,3 +42,24 @@ async def test_infer_company_name(tab: Tab, url, expected_company_name):
     company_name = await infer_company_name(tab)
     assert company_name == expected_company_name
     await tab.close()
+
+
+@pytest.mark.parametrize(
+    ("email", "expected"),
+    [
+        ("hello@example.com", True),
+        ("john.doe@example.com", True),
+        ("user@example-site.com", True),
+        ("hello@example.com.au", True),
+        ("USER+tag@sub.example.com", True),
+        ("bad..dots@example.com", False),
+        ("no-at-symbol.com", False),
+        ("user@-invalid.com", False),
+        ("user@example-.com", False),
+        ("user@exa_mple.com", False),
+        (f"{'a' * 65}@example.com", False),
+        (f"user@{'a' * 64}.com", False),
+    ],
+)
+def test_email_validation(email: str, expected: bool) -> None:
+    assert email_valid(email) is expected

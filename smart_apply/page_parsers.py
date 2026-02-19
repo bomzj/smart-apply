@@ -139,8 +139,13 @@ async def extract_emails(tab: Tab) -> tuple[list[str], list[str]]:
     "}\n"
     "Sort by relevance. If no emails match a category, return an empty array."
     )
+    
     res = ask_llm(task, model="smart")
     emails = json.loads(res)
+    
+    # filter out invalid emails that don't match a basic email pattern (as a safety check against LLM hallucinations)
+    emails['job_emails'] = [email for email in emails['job_emails'] if email_valid(email)]
+    emails['contact_emails'] = [email for email in emails['contact_emails'] if email_valid(email)]
 
     return emails['job_emails'], emails['contact_emails']  
 
@@ -192,3 +197,46 @@ def html_to_plain_text(html):
     html = re.sub(r'\s+', ' ', html).strip()
     
     return html
+
+
+def email_valid(email: str) -> bool:
+
+    _MAX_EMAIL_LENGTH = 254
+    _MAX_LOCAL_LENGTH = 64
+    _MAX_DOMAIN_LABEL_LENGTH = 63
+
+    # Compiled once at module level
+    _EMAIL_PATTERN = re.compile(
+        r"""
+        ^
+        (?P<local>
+            [a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+
+            (?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*
+        )
+        @
+        (?P<domain>
+            (?:
+                [a-zA-Z0-9]
+                (?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
+                \.
+            )+
+            [a-zA-Z]{2,63}
+        )
+        $
+        """,
+        re.VERBOSE,
+    )
+
+    if not email or len(email) > _MAX_EMAIL_LENGTH:
+        return False
+
+    match = _EMAIL_PATTERN.fullmatch(email)
+    if not match:
+        return False
+
+    local = match.group("local")
+    if len(local) > _MAX_LOCAL_LENGTH:
+        return False
+
+    domain = match.group("domain")
+    return all(len(label) <= _MAX_DOMAIN_LABEL_LENGTH for label in domain.split("."))
