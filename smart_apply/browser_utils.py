@@ -54,3 +54,21 @@ async def wait_until(condition: Callable[[], bool], timeout=30, interval=0.1):
             return
         await asyncio.sleep(interval)
     raise WaitElementTimeout("wait_until() timeout")
+
+
+async def site_available(tab: Tab) -> bool:
+    current_url = await tab.current_url #await tab.execute_script("return window.location.href")
+    if current_url.startswith("chrome-error://"):
+        return False
+
+    content = await tab.page_source()
+    error_signals = [
+        "ERR_NAME_NOT_RESOLVED",
+        "ERR_CONNECTION_REFUSED",
+        "ERR_CONNECTION_TIMED_OUT",
+        "ERR_INTERNET_DISCONNECTED",
+        "This site can't be reached",
+        "DNS_PROBE_FINISHED_NXDOMAIN",
+    ]
+    
+    return not any(signal in content for signal in error_signals)

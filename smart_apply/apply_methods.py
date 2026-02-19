@@ -20,7 +20,7 @@ from smart_apply.gmail import send_email_from_me, gmail_quota_exceeded
 from smart_apply.captcha_solvers.recaptcha import *
 from smart_apply.captcha_solvers.cloudflare_challenge import *
 from smart_apply.config import settings
-from smart_apply.browser_utils import script_value, wait_for_network_idle, wait_until
+from smart_apply.browser_utils import script_value, site_available, wait_for_network_idle, wait_until
 from smart_apply.logger import log_info, log_error, log_warning, record_sent_email, record_failed_form
 
 
@@ -44,7 +44,18 @@ class FailedAttempt:
 class NoApplicationMethod:
     pass
 
-type ApplyStatus = AppliedViaEmail | AppliedViaForm | NoLinksFound | FailedAttempt | NoApplicationMethod
+@dataclass
+class SiteUnavailable:
+    pass
+
+type ApplyStatus = (
+    AppliedViaEmail | 
+    AppliedViaForm | 
+    NoLinksFound | 
+    FailedAttempt |
+    NoApplicationMethod | 
+    SiteUnavailable
+)
 
 @dataclass
 class Applicant:
@@ -70,6 +81,9 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyStatus:
     await tab.enable_auto_solve_cloudflare_captcha()
     await tab.go_to(start_url, timeout=30)
     
+    if not await site_available(tab):
+        raise ValueError("Site is not available")
+     
     # Wait for Cloudflare challenge to be auto-solved by Pydoll if present
     try:
         await wait_until_cloudflare_resolved(tab)
