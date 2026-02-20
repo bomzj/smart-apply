@@ -9,7 +9,7 @@ from smart_apply.llm import ask_llm
 from smart_apply.page_parsers import (
     extract_emails, 
     extract_forms, 
-    extract_links_to_visit, 
+    extract_contact_links, 
     html_to_plain_text, 
     infer_company_name, 
     element_outer_html
@@ -21,7 +21,7 @@ from smart_apply.captcha_solvers.recaptcha import *
 from smart_apply.captcha_solvers.cloudflare_challenge import *
 from smart_apply.config import settings
 from smart_apply.browser_utils import script_value, site_available, wait_for_network_idle, wait_until
-from smart_apply.logger import log_info, log_error, log_warning, record_sent_email, record_failed_form
+from smart_apply.logger import log_debug, log_info, log_error, log_warning, record_sent_email, record_failed_form
 
 
 @dataclass
@@ -93,7 +93,7 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyStatus:
     await tab.disable_auto_solve_cloudflare_captcha()
 
     # Extract page links related to jobs and contact info
-    links = await extract_links_to_visit(tab)
+    links = await extract_contact_links(tab)
     
     if not links:
         return NoLinksFound()
@@ -101,7 +101,7 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyStatus:
     # Limit to first 5 links to avoid excessive navigation
     links = links[:5]
     formatted_links = json.dumps(links, indent=2, ensure_ascii=False)
-    log_info(f"Extracted {len(links)} relevant links to visit:\n{formatted_links}")
+    log_info(f"Extracted {len(links)} contact links to visit:\n{formatted_links}")
 
     applicant = Applicant(
         full_name=settings.applicant_name,
@@ -347,10 +347,9 @@ async def submit_form(tab: Tab, form: WebElement):
     await asyncio.sleep(10)
 
     # Assume successful form submission hides the form, including redirects to thank you pages
-    # if form is detached from DOM is_visible will raise or return False
     await form.scroll_into_view()  # Ensure the form is in view to get accurate visibility status
     if not await form.is_visible():
-        log_info("Form submission appears successful (form is no longer visible).")
+        log_debug("Form submission appears successful (form is no longer visible).")
         return
 
     # Also assume successful submission when input fields are cleared
@@ -366,42 +365,10 @@ async def submit_form(tab: Tab, form: WebElement):
             break
 
     if all_cleared and inputs:
-        log_info("Form submission appears successful (input fields cleared).")
+        log_debug("Form submission appears successful (input fields cleared).")
         return
 
-    # As the last resort, prompt to verify submission success
-    page_text = html_to_plain_text(await tab.page_source)
-    submission_validation_prompt = """
-        You are a validation assistant. You will be provided with the full text content (`innerText`) of a web page **after a form submission**. Your task is to determine if the form was successfully submitted.
-
-        - If the page contains a clear confirmation message such as "Thank you", "Submission successful", "Your request has been received", or anything that indicates success, return:
-        {
-            "submitted": true
-        }
-
-        - If the page contains error messages, warnings, or anything indicating the submission failed, return:
-        {
-            "submitted": false,
-            "error": "<brief error message extracted from the page>"
-        }
-
-        - If it is unclear whether the submission succeeded, return:
-        {
-            "submitted": false,
-            "error": "Unable to determine submission status"
-        }
-
-        **Do not provide any explanation, only return the JSON object.**
-
-        Here is the page text:
-        {page_text}
-        """.replace("{page_text}", page_text)
-    
-    res = ask_llm(submission_validation_prompt, model="smart")
-    res = json.loads(res)
-
-    if res.get("error"):
-        raise ValueError(res['error'])
+    return Err('form is still visible and input fields not cleared after submission, cannot confirm success')
 
 
 def apply_via_email(ctx: ApplyContext, email_to: str) -> bool:

@@ -44,7 +44,7 @@ async def infer_company_name(tab: Tab) -> str:
     return shortened[:50].strip()
 
 
-async def extract_links_to_visit(tab: Tab) -> list[str]:
+async def extract_contact_links(tab: Tab) -> list[str]:
     ''' Extract links related to jobs and contact info pages'''
     
     url = await tab.current_url
