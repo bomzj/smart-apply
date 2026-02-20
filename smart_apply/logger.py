@@ -68,8 +68,8 @@ class RichColoredFormatter(logging.Formatter):
         elif record.levelno == logging.DEBUG:
             color = 'bright_magenta'
 
-        # Mimic the 3 spaces _FileFormatter adds when a hostname is present
-        host_part = f"[yellow]{hostname}[/yellow]   " if hostname else ""
+        # Mimic the 2 spaces _FileFormatter adds when a hostname is present
+        host_part = f"[yellow]{hostname}[/yellow]  " if hostname else ""
         message = record.getMessage()
         
         # Assemble with standard double-spacing to match: '%(asctime)s  %(levelname)s  %(message)s'
@@ -94,7 +94,7 @@ def setup_logging():
     logging.getLogger().setLevel(logging.CRITICAL)
 
     app_logger = logging.getLogger('smart_apply')
-    app_logger.setLevel(logging.INFO)
+    app_logger.setLevel(logging.DEBUG)
 
     # Avoid duplicate handlers on repeated calls
     if app_logger.handlers:
@@ -107,14 +107,14 @@ def setup_logging():
 
     # Console handler (routed through Rich Console to avoid ghosting with Live panels)
     console_handler = _RichConsoleHandler(console)
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(console_fmt)
     console_handler.addFilter(hostname_filter)
     app_logger.addHandler(console_handler)
 
     # app.log file handler
     app_file = logging.FileHandler(log_dir / 'app.log', mode='a', encoding='utf-8')
-    app_file.setLevel(logging.INFO)
+    app_file.setLevel(logging.DEBUG)
     app_file.setFormatter(file_fmt)
     app_file.addFilter(hostname_filter)
     app_logger.addHandler(app_file)
@@ -124,7 +124,7 @@ def setup_logging():
 
     for name in ('sent_emails', 'failed_forms', 'failed_urls'):
         logger = logging.getLogger(f'smart_apply.{name}')
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
         logger.propagate = False
 
         if not logger.handlers:
