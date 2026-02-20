@@ -169,25 +169,32 @@ async def job_or_contact_form(tab: Tab) -> WebElement | None:
     html_forms = await extract_forms(tab)
   
     task = f"""
-        You will be given a list of HTML form elements as input, like this: ["<form>...</form>", "<form>...</form>", ...]. 
-        Each item in the list represents one form from a webpage, indexed starting from 0.\n\n
+    You are an HTML parsing assistant. Your task is to analyze a provided list of HTML forms and identify the most relevant one based on specific priorities. 
+    
+    The input data provided at the end of this prompt is a list of HTML form elements formattted as: ["<form>...</form>", "<form>...</form>", ...]. Each form in the list is indexed starting from 0.
 
-        The list of forms:\n\n
-        {html_forms} \n\n
+    ### PRIORITIES:
+    1.  **Job-Related Form (Highest Priority):** Look for fields or elements clearly indicating a job application. 
+		This includes input fields with names, labels, placeholders, or types related to "CV", "resume", "upload file", "cover letter", "experience", "position", "salary", "references". 
+		Look specifically for file upload inputs (e.g., <input type="file">) in the context of resumes. 
+		If multiple forms match, select the best match.
+    2.  **Contact Form (Fallback):** If no dedicated job form is found, look for a generic contact form. 
+		**CRITICAL REQUIREMENT: To qualify as a valid fallback, this contact form MUST contain either a file upload input (for a CV/attachment) OR a <textarea> input (for a message).** 
+		It should also contain general inquiry fields like "name", "email", or "phone".
+    3.  **None:** Ignore forms for login, search, newsletter signup, or unrelated purposes. 
+		If no form meets the criteria for Priority 1 or Priority 2, the result is None.
 
-        Your task is to analyze each form in the list and identify the most relevant one based on the following priorities:First, look for a job-related form. 
-        A job-related form typically includes fields or elements indicating it's for job applications, such as:Input fields with names, labels, placeholders, or types related to "CV", "resume", "upload file", "cover letter", "experience", "position", "salary", "references", or similar job application terms.
-        File upload inputs (e.g., <input type="file">) in the context of resumes or applications.
-        If multiple forms seem job-related, select the one that best matches (e.g., the one with the most relevant fields).
+    ### INSTRUCTIONS:
+    Examine the HTML structure of each form (including <input>, <label>, <select>, <textarea>, and associated text/attributes) to determine its purpose.
 
-        If no job-related form is found, fallback to identifying a contact form. A contact form typically includes general inquiry fields like "name", "email", "message", "subject", "phone", without job-specific elements.
-        If no job-related or contact form is found, output None.
+    ### OUTPUT FORMAT:
+    Respond with strictly a single integer (the 0-based index of the selected form) or the word "None". 
+    Do not include any explanations, reasoning, markdown, or additional text.
 
-        Examine the HTML structure of each form, including <input>, <label>, <select>, <textarea>, and any associated text or attributes, to determine its purpose. 
-        Ignore forms that are for login, search, newsletter signup, or unrelated purposes.
-                
-        Your output must be strictly a single integer (the 0-based index of the selected form) or the word "None" if nothing matches. 
-        Do not include any explanations, reasoning, or additional text in your response.
+    ### DATA:
+    <forms>
+    {html_forms}
+    </forms>
     """
     
     res = ask_llm(task, "smart")
