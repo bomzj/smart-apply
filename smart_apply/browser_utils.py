@@ -61,7 +61,7 @@ async def site_available(tab: Tab) -> bool:
     if current_url.startswith("chrome-error://"):
         return False
 
-    content = await tab.page_source()
+    content = await tab.page_source
     error_signals = [
         "ERR_NAME_NOT_RESOLVED",
         "ERR_CONNECTION_REFUSED",

@@ -221,7 +221,7 @@ async def apply_via_form(ctx: ApplyContext, form: WebElement):
         case Ok("solved"):
             log_info(f"ReCaptcha solved on {current_url}.")
         case Err(e):
-            raise ValueError(f"Failed to solve ReCaptcha on {current_url}.") from e
+            raise ValueError(f"Failed to solve ReCaptcha.") from e
 
     return await submit_form(tab, form)
 

@@ -20,7 +20,7 @@ async def page_has_recaptcha(tab: Tab) -> bool:
     return any(m in content for m in markers)
 
 
-async def recaptcha_within_container(container: WebElement) -> bool:
+async def find_recaptcha(container: WebElement) -> WebElement | None:
     """Check if a visible ReCaptcha V2 is present in the given container.
     Args:
         container (WebElement): The container to search within (usually a form).
@@ -29,7 +29,7 @@ async def recaptcha_within_container(container: WebElement) -> bool:
         iframe = await container.query('iframe[src*="recaptcha"]', timeout=15)
        
         if not iframe:
-            return False
+            return None
         
         # TODO: is this line needed?
         await iframe.wait_until(is_visible=True, timeout=15)
@@ -37,20 +37,21 @@ async def recaptcha_within_container(container: WebElement) -> bool:
          # Check if it's visible v2 recaptcha with checkbox (not invisible or v3)
         await iframe.query('.recaptcha-checkbox-checkmark')
 
-        return True
+        return iframe
     except (WaitElementTimeout, ElementNotFound):
-        return False
+        return None
 
 
 @safe_fn
 async def solve_recaptcha_if_present(container: WebElement, tab: Tab) -> Result[Literal['not_detected', 'solved'], Exception]:
     recaptcha_signs_detected = await page_has_recaptcha(tab)
-    recaptcha = await recaptcha_within_container(container) if recaptcha_signs_detected else None
+    recaptcha = await find_recaptcha(container) if recaptcha_signs_detected else None
 
     if not recaptcha:
         return Ok('not_detected')
 
     try:
+        await recaptcha.scroll_into_view()
         await solve_recaptcha(tab)
     except Exception as e:
         return Err(e)
@@ -61,8 +62,6 @@ async def solve_recaptcha_if_present(container: WebElement, tab: Tab) -> Result[
 # Constants
 TEMP_DIR = os.getenv("TEMP") if os.name == "nt" else "/tmp"
 TIMEOUT_STANDARD = 7
-TIMEOUT_SHORT = 1
-TIMEOUT_DETECTION = 0.05
 
 
 async def solve_recaptcha(tab: Tab) -> None:
@@ -72,39 +71,38 @@ async def solve_recaptcha(tab: Tab) -> None:
     Raises:
         RuntimeError: If captcha solving fails or bot is detected.
     """
+    # HACK: Pydoll has issues with recaptcha iframe(or iframes at all) and wrongly clicks on its elements inside
+    # https://github.com/autoscrape-labs/pydoll/issues/370
+    # every time we use the iframe element, we need to re-query it to get a fresh reference that works correctly
+    async def checkbox_iframe():
+        return await tab.query(
+            'iframe[title="reCAPTCHA"]', timeout=TIMEOUT_STANDARD
+        )
+    
+    async def challenge_iframe():
+        return await tab.query(
+            'iframe[title*="recaptcha challenge"]', timeout=TIMEOUT_STANDARD
+        )
+    
     # Find and click the reCAPTCHA checkbox iframe
-    checkbox_iframe = await tab.query(
-        'iframe[title="reCAPTCHA"]', timeout=TIMEOUT_STANDARD
-    )
-    await checkbox_iframe.wait_until(is_visible=True, timeout=TIMEOUT_STANDARD)
-    await asyncio.sleep(0.1)
-
-    content = await checkbox_iframe.query(
-        '.rc-anchor-content', timeout=TIMEOUT_STANDARD
-    )
-    log_info('Clicking on ReCaptcha checkbox.')
-    await content.click()
+    await (await checkbox_iframe()).click()
 
     # Check if solved by just clicking
     if await recaptcha_solved(tab):
-        log_info('ReCaptcha solved via checkbox click.')
         return
 
     # Handle audio challenge
-    challenge_iframe = await tab.query(
-        'iframe[title*="recaptcha challenge"]', timeout=TIMEOUT_STANDARD
-    )
-    audio_btn = await challenge_iframe.query(
+    bounds = await (await challenge_iframe()).bounds
+    audio_btn = await (await challenge_iframe()).query(
         '#recaptcha-audio-button', timeout=TIMEOUT_STANDARD
     )
-    await audio_btn.click()
-    await asyncio.sleep(0.3)
+    await audio_btn.click(x_offset=bounds[0], y_offset=bounds[1])
 
     if await recaptcha_detected_bot(tab):
-        raise RuntimeError('Captcha detected bot behavior')
+        raise RuntimeError('ReCaptcha detected bot behavior')
 
     # Download and process audio
-    audio_source = await challenge_iframe.query(
+    audio_source = await (await challenge_iframe()).query(
         '#audio-source', timeout=TIMEOUT_STANDARD
     )
     src_result = await audio_source.execute_script(
@@ -113,19 +111,21 @@ async def solve_recaptcha(tab: Tab) -> None:
     src = script_value(src_result)
 
     try:
-        text_response = await asyncio.to_thread(recognize_audio_challenge, src)
+        text_response = await asyncio.to_thread(recognize_text_from_audio, src)
 
-        response_input = await challenge_iframe.query('#audio-response')
+        # Insert the recognized text
+        response_input = await (await challenge_iframe()).query('#audio-response')
         await response_input.insert_text(text_response.lower())
 
-        verify_btn = await challenge_iframe.query('#recaptcha-verify-button')
-        await verify_btn.click()
-        await asyncio.sleep(0.4)
+        # Click the verify button
+        bounds = await (await challenge_iframe()).bounds
+        verify_btn = await (await challenge_iframe()).query('#recaptcha-verify-button')
+        await verify_btn.click(x_offset=bounds[0], y_offset=bounds[1])
 
         if not await recaptcha_solved(tab):
-            raise RuntimeError('Failed to solve the captcha')
+            raise RuntimeError('Failed to solve the ReCaptcha')
 
-        log_info('ReCaptcha solved via audio challenge.')
+        #log_debug('ReCaptcha solved via audio challenge')
 
     except RuntimeError:
         raise
@@ -133,7 +133,7 @@ async def solve_recaptcha(tab: Tab) -> None:
         raise RuntimeError(f'Audio challenge failed: {e}') from e
 
 
-def recognize_audio_challenge(audio_url: str) -> str:
+def recognize_text_from_audio(audio_url: str) -> str:
     """Download the audio challenge, convert to WAV, and return recognized text.
 
     This is intentionally synchronous (file I/O + speech recognition).
