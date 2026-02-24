@@ -20,7 +20,7 @@ from smart_apply.gmail import send_email_from_me, gmail_quota_exceeded
 from smart_apply.captcha_solvers.recaptcha import *
 from smart_apply.captcha_solvers.cloudflare_challenge import *
 from smart_apply.config import settings
-from smart_apply.browser_utils import script_value, site_available, wait_for_network_idle, wait_until
+from smart_apply.browser_utils import accept_cookie_consent, script_value, site_available, wait_for_network_idle, wait_until
 from smart_apply.logger import log_debug, log_info, log_error, log_warning, record_sent_email, record_failed_form
 
 
@@ -91,6 +91,9 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyStatus:
         raise ValueError(f"Failed to solve Cloudflare challenge.") from e
     
     await tab.disable_auto_solve_cloudflare_captcha()
+
+    # hide cookie banner if present to avoid interference with element detection and clicking
+    await accept_cookie_consent(tab)
 
     # Extract page links related to jobs and contact info
     links = await extract_contact_links(tab)

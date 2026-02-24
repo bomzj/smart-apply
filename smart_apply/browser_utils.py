@@ -72,3 +72,92 @@ async def site_available(tab: Tab) -> bool:
     ]
     
     return not any(signal in content for signal in error_signals)
+
+
+async def accept_cookie_consent(tab: Tab) -> bool:
+    """Find and click a cookie consent accept button. Returns True if clicked."""
+    js = """
+    function findStickyCookieBanners() {
+      const keywords = ['cookie', 'gdpr'];
+      const candidates = [];
+      const allElements = document.querySelectorAll('body *');
+
+      allElements.forEach(el => {
+        const style = window.getComputedStyle(el);
+        const position = style.position;
+        const zIndex = parseInt(style.zIndex, 10);
+
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+
+        const isSticky = (position === 'fixed' || position === 'sticky');
+        const isHighZ = (!isNaN(zIndex) && zIndex > 100);
+
+        if (isSticky || isHighZ) {
+          const idAndClass = (el.id + el.className).toLowerCase();
+          const textContent = el.textContent ? el.textContent.toLowerCase() : "";
+
+          const hasKeyword = keywords.some(word =>
+            idAndClass.includes(word) || textContent.includes(word)
+          );
+
+          if (hasKeyword) {
+            candidates.push(el);
+          }
+        }
+      });
+
+      const finalResults = candidates.filter(el => {
+        return !candidates.some(otherEl =>
+          otherEl !== el && otherEl.contains(el)
+        );
+      });
+
+      return finalResults;
+    }
+
+    function findAcceptButton(container) {
+      const acceptKeywords = ['accept', 'allow', 'agree', 'ok', 'understand', 'permit', 'enable'];
+      const candidates = Array.from(container.querySelectorAll('button, a, [role="button"], input[type="button"], input[type="submit"]'));
+
+      let bestMatch = null;
+
+      for (const el of candidates) {
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+
+        const text = el.innerText.toLowerCase().trim();
+		const isAcceptMatch = text.split(/\s+/).some(word => acceptKeywords.includes(word));
+
+        if (isAcceptMatch) {
+          bestMatch = el;
+          break;
+        }
+      }
+
+      return bestMatch;
+    }
+
+    function clickAcceptCookies() {
+      const banners = findStickyCookieBanners();
+      for (const banner of banners) {
+        const acceptBtn = findAcceptButton(banner);
+    
+        if (acceptBtn) {
+            acceptBtn.click();
+            return true; // Exit early once we've succeeded
+        }
+      }
+      return false;
+    }
+
+    return clickAcceptCookies();
+    """
+    result = await tab.execute_script(js, return_by_value=True)
+    clicked = script_value(result)
+    if clicked:
+        log_info("Cookie consent accepted.")
+    return bool(clicked)
