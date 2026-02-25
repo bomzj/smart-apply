@@ -15,7 +15,7 @@ LIVE_TARGETS = [
     ('https://www.nytimes.com/', True),
     ('https://www.speedtest.net/', True), # OneTrust banner with iframe
     ('https://www.w3.org/', False),  # W3C doesn't have a cookie banner
-    ('https://example.com/', False),  # Example domain with no banner,
+    ('https://www.techmahindra.com/', True),  # also OneTrust
     ('https://www.twilio.com/', True) # Twilio uses iframe banner from TrustArc
 ]
 

@@ -1,11 +1,167 @@
 import json
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlunparse, parse_qs, urlencode
 import re
 from pydoll.browser.tab import Tab
 from pydoll.elements.web_element import WebElement
 from smart_apply.llm import ask_llm
 from smart_apply.browser_utils import script_value
 from smart_apply.logger import log_warning
+
+
+def normalize_url(raw: str) -> str | None:
+    """Normalize a URL: strip fragment, tracking params, trailing slash. Returns None for non-http(s) schemes."""
+    _TRACKING_PARAMS = frozenset((
+        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+        'fbclid', 'gclid', 'ref', 'source',
+    ))
+
+    try:
+        parsed = urlparse(raw)
+    except Exception:
+        return None
+
+    if parsed.scheme not in ('http', 'https'):
+        return None
+
+    # Strip fragment
+    # Strip tracking query params
+    query_params = parse_qs(parsed.query, keep_blank_values=True)
+    cleaned_params = {k: v for k, v in query_params.items() if k not in _TRACKING_PARAMS}
+    clean_query = urlencode(cleaned_params, doseq=True)
+
+    # Strip trailing slash from path (but keep root '/')
+    path = parsed.path.rstrip('/') or '/'
+
+    normalized = urlunparse((
+        parsed.scheme,
+        parsed.netloc.lower(),
+        path,
+        parsed.params,
+        clean_query,
+        '',  # no fragment
+    ))
+    return normalized
+
+
+def same_origin(url_a: str, url_b: str) -> bool:
+    """Check whether two URLs share the same registered domain.
+
+    Matches exact domain, www. variants, and subdomains
+    (e.g. career.site1.com is valid when visiting site1.com).
+    """
+    def _registered_domain(u: str) -> str:
+        host = urlparse(u).netloc.lower().removeprefix('www.')
+        parts = host.split('.')
+        # Keep last two segments as the registered domain (e.g. site1.com)
+        return '.'.join(parts[-2:]) if len(parts) >= 2 else host
+    return _registered_domain(url_a) == _registered_domain(url_b)
+
+
+def pre_filter_links(links: list[str], base_url: str) -> list[str]:
+    """Filter and deduplicate raw href list before sending to the LLM.
+
+    Keeps only same-origin http(s) links, removes static assets, junk paths,
+    and deduplicates after normalizing.
+    """
+    _STATIC_EXTENSIONS = frozenset((
+        '.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico',
+        '.pdf', '.zip', '.woff', '.woff2', '.ttf', '.eot', '.xml', '.json',
+        '.mp3', '.mp4', '.avi', '.mov', '.webm',
+    ))
+
+    _JUNK_PATH_PREFIXES = (
+        '/cdn-cgi/', '/wp-content/', '/wp-json/', '/wp-admin/',
+        '/static/', '/assets/', '/api/', '/_next/', '/feed/',
+    )
+
+    seen: set[str] = set()
+    result: list[str] = []
+
+    for raw in links:
+        normalized = normalize_url(raw)
+        if not normalized:
+            continue
+
+        # Same-origin check
+        if not same_origin(normalized, base_url):
+            continue
+
+        # Skip static assets by extension
+        path = urlparse(normalized).path.lower()
+        if any(path.endswith(ext) for ext in _STATIC_EXTENSIONS):
+            continue
+
+        # Skip junk path prefixes
+        if any(path.startswith(prefix) for prefix in _JUNK_PATH_PREFIXES):
+            continue
+
+        # Deduplicate
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+
+    return result
+
+
+async def extract_contact_links(tab: Tab) -> list[str]:
+    '''Extract links related to jobs and contact info pages.'''
+
+    url = await tab.current_url
+    result = await tab.execute_script(
+        "return Array.from(document.querySelectorAll('a')).map(el => el.href)",
+        return_by_value=True
+    )
+    links = script_value(result)
+    if not links:
+        return []
+
+    # Pre-filter: same-origin, dedup, remove static assets & junk paths
+    links = pre_filter_links(links, url)
+    if not links:
+        return []
+
+    task = (
+        "Select URLs relevant to a job application process from the list below.\n\n"
+
+        "INCLUDE:\n"
+        "1. JOB / CAREER pages — generic hubs or listing pages only.\n"
+        "   a) PATH-based: the career keyword (e.g. careers, jobs, vacancies, openings, "
+        "positions, work-with-us, join-us, hiring, opportunities) must be the LAST path segment. "
+        "Prefix nesting before the keyword is OK (e.g. /company/careers, /en/jobs). "
+        "Any additional segment AFTER the keyword makes it invalid — no exceptions "
+        "(e.g. /careers/tech-way, /careers/open-positions, /jobs/12345 are all EXCLUDED).\n"
+        "   b) SUBDOMAIN-based: a career keyword in the subdomain is also valid, even with "
+        "a root path (e.g. careers.example.com, jobs.example.com, careers.example.com/apply). "
+        "These are standalone career portals and should be INCLUDED.\n"
+        "2. CONTACT / ABOUT pages — company info or contact pages useful for outreach.\n"
+        "   a) PATH-based: the relevant keyword (e.g. about, about-us, contact, contact-us, "
+        "company, who-we-are, get-in-touch, reach-us) must be the LAST path segment. "
+        "Prefix nesting is OK (e.g. /en/contact, /company/about-us). "
+        "EXCLUDE deeper sub-sections like /contact/form, /about/team, /company/press.\n"
+        "   b) SUBDOMAIN-based: a contact keyword in the subdomain is also valid "
+        "(e.g. contact.example.com).\n\n"
+
+        "EXCLUDE:\n"
+        "- Homepages or locale roots: /, /en, /de, /home, bare domain.\n"
+        "- Blog posts, news, legal/privacy, product, or customer-facing pages.\n\n"
+
+        "SORTING: job/career URLs first, then contact/about URLs. "
+        "Within each group prefer shorter, more canonical paths.\n\n"
+
+        "Return at most 5 results as a plain JSON array of absolute URLs. "
+        "No extra text, no markdown.\n"
+        'Example: ["https://example.com/careers", "https://careers.example.com", "https://example.com/contact"]\n\n'
+
+        "URLs:\n"
+        f"{json.dumps(links, indent=2)}"
+    )
+
+    res = ask_llm(task, "smart")
+    extracted_links: list[str] = json.loads(res)
+
+    # Normalize to fully qualified URLs (safety net for relative paths)
+    return [urljoin(url, link) for link in extracted_links]
 
 
 async def infer_company_name(tab: Tab) -> str:
@@ -32,7 +188,7 @@ async def infer_company_name(tab: Tab) -> str:
         log_warning(f"LLM returned empty company name for URL: {url}.")
         # Fallback to domain name if LLM fails to provide a name
         domain = urlparse(url).netloc
-        
+        domain = domain.removeprefix('www.')
         # Take first part of domain and capitalize
         return domain.split('.')[0].capitalize()
       
@@ -42,76 +198,6 @@ async def infer_company_name(tab: Tab) -> str:
 
     # Truncate total character length to prevent massive strings (e.g., max 50 chars)
     return shortened[:50].strip()
-
-
-async def extract_contact_links(tab: Tab) -> list[str]:
-    ''' Extract links related to jobs and contact info pages'''
-    
-    url = await tab.current_url
-    result = await tab.execute_script(
-        "return Array.from(document.querySelectorAll('a')).map(el => el.href)",
-        return_by_value=True
-    )
-    links = script_value(result)
-    if not links: return []
-
-    task = (
-    f"Given the following list of URLs found on the page at {url}:\n\n"
-    f"{json.dumps(links, indent=2)}\n\n"
-    "Your task is to extract career/job and high-level company/contact pages with the rules below.\n"
-    "IMPORTANT: Completely exclude any homepage or landing page in any language "
-    "(e.g. '/', '/en', '/de', '/it-it', '/home', or the bare domain URL itself).\n\n"
-
-    "1. Job/career pages — generic hubs only (NOT specific job postings):\n"
-    "   - The path must contain at least one career-related keyword: career(s), job(s), vacanc(y|ies), "
-    "     opening(s), position(s), work-with-us, join-us, hiring, opportunities, stelle(n), offerte, "
-    "     emploi(s), lavora-con-noi, karriere, etc.\n"
-    "   - It may be nested (e.g. '/company/careers', '/en/work-with-us/join', '/about/career').\n"
-    "   - It is valid ONLY if it appears to be the final/leaf page — i.e. no additional segments after the keyword part "
-    "     that look like a specific role, ID, or detail page.\n"
-    "   - Valid examples:\n"
-    "       '/careers', '/en/careers', '/company/careers', '/about/work-with-us', '/join-us/careers', "
-    "       '/de/karriere', '/it/lavora-con-noi'\n"
-    "   - Invalid examples:\n"
-    "       • Specific postings: '/careers/senior-python-developer', '/jobs/12345', '/karriere/detail/abc'\n"
-    "       • Deeper subpages: '/careers/open-positions', '/work-with-us/apply', '/join/team'\n"
-    "       • Homepages: '/', '/en', root domain\n"
-    "   - In thinking: 1-2 sentences justifying why it is a generic leaf page.\n\n"
-
-    "2. Company / contact pages — high-level or reasonable leaf pages only:\n"
-    "   - The path must contain at least one relevant keyword: about(-us), company, who-we-are, contact(-us), "
-    "     ueber-uns, über-uns, chi-siamo, a-propos, kontakt, contatti, get-in-touch, reach-us, etc.\n"
-    "   - Nesting is allowed (e.g. '/company/contact', '/en/about-us/contact', '/info/get-in-touch').\n"
-    "   - It is valid ONLY if it is the final/leaf page — no further segments that indicate a sub-section "
-    "     (form, locations, press, team, etc.).\n"
-    "   - Valid examples:\n"
-    "       '/contact', '/en/contact', '/company/contact-us', '/about/get-in-touch', "
-    "       '/de/ueber-uns', '/it/contatti', '/info/kontakt'\n"
-    "   - Invalid examples:\n"
-    "       • Deeper pages: '/contact/form', '/contact/locations', '/about/team', '/company/legal/imprint'\n"
-    "       • Homepages: '/', '/en', root domain\n"
-    "   - In thinking: 1-2 sentences justifying why it is an acceptable leaf page.\n\n"
-
-    "3. For both categories:\n"
-    "   - Prioritize shorter/more direct paths when sorting (e.g. '/careers' > '/en/careers' > '/company/careers').\n"
-    "   - Within the same length, put the most obvious/canonical keyword first "
-    "     (e.g. a page with 'contact' beats one with only 'get-in-touch').\n\n"
-
-    "4. Return STRICTLY valid JSON only (no extra text, no markdown):\n"
-    "{\n"
-    "  \"job_pages\": [\"https://example.com/careers\", ...],\n"
-    "  \"contact_pages\": [\"https://example.com/contact\", ...]\n"
-    "}\n"
-    "Use full absolute URLs. Empty array if nothing valid is found."
-    )
-
-    res = ask_llm(task, "smart")
-    extracted_links = json.loads(res)
-    all_links = extracted_links['job_pages'] + extracted_links['contact_pages']
-
-    # Normalize to fully qualified URLs
-    full_urls = [urljoin(url, link) for link in all_links]
-    return full_urls
 
 
 async def extract_emails(tab: Tab) -> tuple[list[str], list[str]]:

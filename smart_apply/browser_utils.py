@@ -5,7 +5,7 @@ import inspect
 
 from pydoll.browser.tab import Tab
 from pydoll.exceptions import WaitElementTimeout
-from smart_apply.logger import log_info, log_warning
+from smart_apply.logger import log_debug, log_info, log_warning
 
 
 def script_value(response: dict):
@@ -35,7 +35,7 @@ async def wait_for_network_idle(tab: Tab, timeout=30, idle_time=1):
             log_warning("Timeout reached while waiting for network to be idle.")
             break
         if now - last_activity_time >= idle_time:
-            log_info("Network is idle.")
+            log_debug("Network is idle.")
             break
 
     await tab.remove_callback(cb_id)

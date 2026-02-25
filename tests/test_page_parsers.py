@@ -1,5 +1,5 @@
 import pytest
-from smart_apply.page_parsers import html_to_plain_text, infer_company_name, email_valid
+from smart_apply.page_parsers import html_to_plain_text, infer_company_name, email_valid, pre_filter_links
 from pydoll.browser.tab import Tab
 
 def test_html_to_plain_text():
@@ -63,3 +63,96 @@ async def test_infer_company_name(tab: Tab, url, expected_company_name):
 )
 def test_email_validation(email: str, expected: bool) -> None:
     assert email_valid(email) is expected
+
+
+# ── pre_filter_links tests ────────────────────────────────────────────
+
+BASE = "https://www.example.com/en"
+
+
+def test_keeps_same_origin_links():
+    links = [
+        "https://www.example.com/careers",
+        "https://example.com/about",
+        "https://other-site.com/careers",
+        "https://career.example.com/apply",
+        "https://jobs.example.com/openings",
+    ]
+    result = pre_filter_links(links, BASE)
+    assert "https://www.example.com/careers" in result
+    assert "https://example.com/about" in result
+    assert "https://career.example.com/apply" in result
+    assert "https://jobs.example.com/openings" in result
+    assert "https://other-site.com/careers" not in result
+
+
+def test_removes_static_assets():
+    links = [
+        "https://www.example.com/logo.png",
+        "https://www.example.com/style.css",
+        "https://www.example.com/app.js",
+        "https://www.example.com/doc.pdf",
+        "https://www.example.com/careers",
+    ]
+    result = pre_filter_links(links, BASE)
+    assert result == ["https://www.example.com/careers"]
+
+
+def test_removes_junk_path_prefixes():
+    links = [
+        "https://www.example.com/cdn-cgi/trace",
+        "https://www.example.com/wp-content/uploads/img.jpg",
+        "https://www.example.com/wp-json/v2/posts",
+        "https://www.example.com/static/bundle.js",
+        "https://www.example.com/api/users",
+        "https://www.example.com/contact",
+    ]
+    result = pre_filter_links(links, BASE)
+    assert result == ["https://www.example.com/contact"]
+
+
+def test_deduplicates_after_normalization():
+    links = [
+        "https://www.example.com/careers/",
+        "https://www.example.com/careers",
+        "https://www.example.com/careers#apply",
+        "https://www.example.com/careers?utm_source=google",
+    ]
+    result = pre_filter_links(links, BASE)
+    assert len(result) == 1
+    assert result[0] == "https://www.example.com/careers"
+
+
+def test_strips_non_http_schemes():
+    links = [
+        "mailto:info@example.com",
+        "tel:+1234567890",
+        "javascript:void(0)",
+        "https://www.example.com/about",
+    ]
+    result = pre_filter_links(links, BASE)
+    assert result == ["https://www.example.com/about"]
+
+
+def test_preserves_meaningful_query_params():
+    links = [
+        "https://www.example.com/careers?dept=engineering",
+        "https://www.example.com/careers?utm_source=google&dept=engineering",
+    ]
+    result = pre_filter_links(links, BASE)
+    assert len(result) == 1
+    assert "dept=engineering" in result[0]
+    assert "utm_source" not in result[0]
+
+
+def test_empty_input():
+    assert pre_filter_links([], BASE) == []
+
+
+def test_all_external_links():
+    links = [
+        "https://facebook.com/example",
+        "https://twitter.com/example",
+        "https://linkedin.com/company/example",
+    ]
+    assert pre_filter_links(links, BASE) == []
