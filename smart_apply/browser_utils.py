@@ -76,52 +76,14 @@ async def site_available(tab: Tab) -> bool:
 
 async def accept_cookie_consent(tab: Tab) -> bool:
     """Find and click a cookie consent accept button. Returns True if clicked."""
-    js = """
-    function findStickyCookieBanners() {
-      const keywords = ['cookie', 'gdpr'];
-      const candidates = [];
-      const allElements = document.querySelectorAll('body *');
 
-      allElements.forEach(el => {
-        const style = window.getComputedStyle(el);
-        const position = style.position;
-        const zIndex = parseInt(style.zIndex, 10);
-
-        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
-        const rect = el.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
-
-        const isSticky = (position === 'fixed' || position === 'sticky');
-        const isHighZ = (!isNaN(zIndex) && zIndex > 100);
-
-        if (isSticky || isHighZ) {
-          const idAndClass = (el.id + el.className).toLowerCase();
-          const textContent = el.textContent ? el.textContent.toLowerCase() : "";
-
-          const hasKeyword = keywords.some(word =>
-            idAndClass.includes(word) || textContent.includes(word)
-          );
-
-          if (hasKeyword) {
-            candidates.push(el);
-          }
-        }
-      });
-
-      const finalResults = candidates.filter(el => {
-        return !candidates.some(otherEl =>
-          otherEl !== el && otherEl.contains(el)
-        );
-      });
-
-      return finalResults;
-    }
-
-    function findAcceptButton(container) {
-      const acceptKeywords = ['accept', 'allow', 'agree', 'ok', 'understand', 'permit', 'enable'];
-      const candidates = Array.from(container.querySelectorAll('button, a, [role="button"], input[type="button"], input[type="submit"]'));
-
-      let bestMatch = null;
+    FIND_ACCEPT_BUTTON_JS = """
+    function findAcceptCookieButton(container) {
+      const acceptKeywords = ['accept', 'allow', 'agree'];
+      const bannerKeywords = ['cookie', 'privacy'];
+      const candidates = Array.from(container.querySelectorAll(
+        'button, a, [role="button"], input[type="button"], input[type="submit"]'
+      ));
 
       for (const el of candidates) {
         const style = window.getComputedStyle(el);
@@ -129,35 +91,62 @@ async def accept_cookie_consent(tab: Tab) -> bool:
         const rect = el.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) continue;
 
-        const text = el.innerText.toLowerCase().trim();
-		const isAcceptMatch = text.split(/\s+/).some(word => acceptKeywords.includes(word));
+        const btnText = (el.innerText || '').toLowerCase().trim().split(/\s+/);
+        if (!btnText.some(w => acceptKeywords.includes(w))) continue;
 
-        if (isAcceptMatch) {
-          bestMatch = el;
-          break;
+        let parent = el.parentElement;
+        while (parent && parent !== container.parentElement) {
+          const parentText = (parent.innerText || '').toLowerCase();
+          if (bannerKeywords.some(kw => parentText.includes(kw))) return el;
+          parent = parent.parentElement;
         }
       }
 
-      return bestMatch;
+      return null;
     }
-
-    function clickAcceptCookies() {
-      const banners = findStickyCookieBanners();
-      for (const banner of banners) {
-        const acceptBtn = findAcceptButton(banner);
-    
-        if (acceptBtn) {
-            acceptBtn.click();
-            return true; // Exit early once we've succeeded
-        }
-      }
-      return false;
-    }
-
-    return clickAcceptCookies();
     """
-    result = await tab.execute_script(js, return_by_value=True)
+
+    CLICK_ACCEPT_DOM_JS = FIND_ACCEPT_BUTTON_JS + """
+        const btn = findAcceptCookieButton(this);
+        if (btn) { btn.click(); return true; }
+        return false;
+    """
+
+    CLICK_ACCEPT_SHADOW_JS = FIND_ACCEPT_BUTTON_JS + """
+        const root = this.shadowRoot;
+        if (!root) return false;
+        const btn = findAcceptCookieButton(root);
+        if (btn) { btn.click(); return true; }
+        return false;
+    """
+
+    # 1. Traverse the normal DOM to find cookie banner and click accept button
+    body = await tab.query("body")
+    result = await body.execute_script(CLICK_ACCEPT_DOM_JS, return_by_value=True)
     clicked = script_value(result)
     if clicked:
-        log_info("Cookie consent accepted.")
-    return bool(clicked)
+        return True
+
+    # 2. If not found, check for shadow roots (e.g. Usercentrics)
+    shadow_roots = await tab.find_shadow_roots()
+    for shadow_root in shadow_roots:
+        host = shadow_root.host_element
+        if not host:
+            continue
+        result = await host.execute_script(CLICK_ACCEPT_SHADOW_JS, return_by_value=True)
+        clicked = script_value(result)
+        if clicked:
+            return True
+
+    # 3. If still not found, check for iframes (e.g. TrustArc)
+    iframes = await tab.query('iframe', find_all=True)
+    for iframe in iframes:
+        if not await iframe.is_visible():
+            continue
+        iframe_body = await iframe.query('body')
+        result = await iframe_body.execute_script(CLICK_ACCEPT_DOM_JS, return_by_value=True)
+        clicked = script_value(result)
+        if clicked:
+            return True
+
+    return False

@@ -9,14 +9,14 @@ from smart_apply.browser_utils import accept_cookie_consent, script_value
 LIVE_TARGETS = [
     ("https://www.cloudflare.com/", True),
     ("https://www.cookiebot.com/", True),
-    ("https://www.usercentrics.com/", True), # uses open shadow root
+    ("https://www.mercedes-benz.com/en/", True), # Usercentrics CMP uses open shadow root
     ("https://www.sqli.com/", True),
     ('https://www.netflix.com/', True),
     ('https://www.nytimes.com/', True),
-    ('https://www.speedtest.net/', True),
+    ('https://www.speedtest.net/', True), # OneTrust banner with iframe
     ('https://www.w3.org/', False),  # W3C doesn't have a cookie banner
     ('https://example.com/', False),  # Example domain with no banner,
-    ('https://www.twilio.com/', True) # Twilio uses iframe banner
+    ('https://www.twilio.com/', True) # Twilio uses iframe banner from TrustArc
 ]
 
 
@@ -41,7 +41,7 @@ async def test_live_cookie_banners(tab: Tab, url: str, expected: bool):
     
     # 5. Verify the banner is actually gone from the viewport
     # We give the site a moment to process the click and play its closing animation
-    await asyncio.sleep(1)
+    await asyncio.sleep(3)
     
     # Re-run the heuristic to ensure no high-scoring banner containers remain
     # (If it returns False, it means the banner was successfully dismissed)
