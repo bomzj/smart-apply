@@ -95,6 +95,9 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyStatus:
     # hide cookie banner if present to avoid interference with element detection and clicking
     await accept_cookie_consent(tab)
 
+    # Wait a bit since some sites reload page after accepting cookies
+    await wait_for_network_idle(tab, timeout=30, idle_time=3)
+
     # Extract page links related to jobs and contact info
     links = await extract_contact_links(tab)
     
