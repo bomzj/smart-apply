@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 from openai import AzureOpenAI
 #from langfuse import Langfuse, get_client, observe
@@ -18,19 +19,31 @@ def apply_if(decorator, condition):
 
 # Available models
 type Model = Literal["fast", "smart"]
+type Reasoning = Literal["low", "medium", "high"]
 
 #@apply_if(observe, LANGFUSE_ENABLED)
-def ask_llm(message: str, model: Model = "fast") -> str:
-    model_id = settings.azure_openai_model_fast if model == "fast" else settings.azure_openai_model_smart
-    response = llm.chat.completions.create(
-        messages=[
-            { "role": "system", "content": "Do not include any reasoning in your response." },
-            { "role": "user", "content": message }
-        ],
-        model=model_id
+def ask_llm(message: str, model: Model = "fast", reasoning: Reasoning = "medium") -> str:
+    model_id = (
+        settings.azure_openai_model_fast 
+        if model == "fast" 
+        else settings.azure_openai_model_smart
     )
 
-    return response.choices[0].message.content
+    response = llm.chat.completions.create(
+        messages=[{ "role": "user", "content": message }],
+        model=model_id,
+        # medium is default for gpt-5-mini in api, but we set it explicitly for clarity
+        reasoning_effort=reasoning
+    )
+
+    content = response.choices[0].message.content
+    if not content:
+        raise ValueError("LLM returned empty response")
+
+    # Remove markdown code fences (```json ... ```) that LLMs tend to wrap around output.
+    content = re.sub(r"^```\w*\s*\n?", "", re.sub(r"\n?```\s*$", "", content.strip()))
+    return content
+
 
 # Configure telemetry to debug model behavior and monitor usage
 # if LANGFUSE_ENABLED:

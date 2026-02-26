@@ -203,7 +203,7 @@ async def job_or_contact_form(tab: Tab) -> WebElement | None:
     </forms>
     """
     
-    res = ask_llm(task, "smart")
+    res = ask_llm(task, "smart", reasoning="high")
 
     if res.isdigit():
         forms = await tab.query('form', find_all=True, raise_exc=False) or []
@@ -281,7 +281,7 @@ async def applicant_to_form(applicant: Applicant, form: WebElement) -> dict[str,
         .replace("{applicant}", applicant_json))
 
     # we will use more advanced smart since fast failed to detect required fields
-    res = ask_llm(applicant_to_form_prompt, model="smart")
+    res = ask_llm(applicant_to_form_prompt, model="smart", reasoning="high")
     form_data = json.loads(res)
     
     if not form_data: raise ValueError("Failed to map applicant data to form fields")
