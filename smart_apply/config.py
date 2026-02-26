@@ -80,4 +80,9 @@ class Config:
     def applicant_message(self) -> str:
         return self.get("applicant.message", "")
 
+    @property
+    def log_level(self) -> int:
+        name = str(self.get("logging.level", "DEBUG")).upper()
+        return getattr(__import__("logging"), name, __import__("logging").DEBUG)
+
 settings = Config()

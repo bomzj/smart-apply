@@ -1,3 +1,6 @@
+logging:
+  level: DEBUG  # DEBUG | INFO | WARNING | ERROR | CRITICAL
+
 langfuse:
   enabled: false
   public_key: "your-public-key-here"

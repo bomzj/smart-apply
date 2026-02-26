@@ -86,15 +86,19 @@ class RichColoredFormatter(logging.Formatter):
 
 
 def setup_logging():
+    from config import settings
+
     today = date.today().isoformat()
     log_dir = LOGS_DIR / today
     log_dir.mkdir(parents=True, exist_ok=True)
+
+    level = settings.log_level
 
     # Silence all third-party loggers by raising root level
     logging.getLogger().setLevel(logging.CRITICAL)
 
     app_logger = logging.getLogger('smart_apply')
-    app_logger.setLevel(logging.DEBUG)
+    app_logger.setLevel(level)
 
     # Avoid duplicate handlers on repeated calls
     if app_logger.handlers:
@@ -107,14 +111,14 @@ def setup_logging():
 
     # Console handler (routed through Rich Console to avoid ghosting with Live panels)
     console_handler = _RichConsoleHandler(console)
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(level)
     console_handler.setFormatter(console_fmt)
     console_handler.addFilter(hostname_filter)
     app_logger.addHandler(console_handler)
 
     # app.log file handler
     app_file = logging.FileHandler(log_dir / 'app.log', mode='a', encoding='utf-8')
-    app_file.setLevel(logging.DEBUG)
+    app_file.setLevel(level)
     app_file.setFormatter(file_fmt)
     app_file.addFilter(hostname_filter)
     app_logger.addHandler(app_file)
