@@ -1,6 +1,8 @@
 import pytest
-from smart_apply.page_parsers import html_to_plain_text, infer_company_name, email_valid, pre_filter_links
+import urllib.parse
+from smart_apply.page_parsers import html_to_plain_text, infer_company_name, email_valid, pre_filter_links, extract_emails
 from pydoll.browser.tab import Tab
+
 
 def test_html_to_plain_text():
     html =  """
@@ -156,3 +158,48 @@ def test_all_external_links():
         "https://linkedin.com/company/example",
     ]
     assert pre_filter_links(links, BASE) == []
+
+
+def _data_uri(html: str) -> str:
+    """Encode an HTML string as a navigable data URI."""
+    return f"data:text/html,{urllib.parse.quote(html)}"
+
+async def test_extract_emails(tab: Tab):
+    """All email types on one page are routed to the correct category."""
+    expected_job_emails = ["careers@acme.com", "jobs@acme.com", "hr@acme.com", 
+                           "recruitment@acme.com", "talent@acme.com"]
+    expected_contact_emails = ["info@acme.com", "contact@acme.com", "hello@acme.com", 
+                               "office@acme.com", "hi@acme.com", "mail@acme.com"]
+    excluded_emails = ["support@acme.com", "noreply@acme.com", "sales@acme.com", 
+        "billing@acme.com", "legal@acme.com", "webmaster@acme.com", "yourdata@acme.com", 
+        "admin@acme.com"]
+
+    html = _data_uri(f"""<!DOCTYPE html>
+        <html><head><title>ACME Corp - Contact Us</title></head>
+        <body>
+        <h2>Job emails</h2>
+        <p>{", ".join(expected_job_emails)}</p>
+
+        <h2>Contact emails</h2>
+        <p>{", ".join(expected_contact_emails)}</p>
+
+        <h2>Excluded emails</h2>
+        <p>{", ".join(excluded_emails)}</p>
+        </body></html>""")
+
+    await tab.go_to(html)
+  
+    job_emails, contact_emails = await extract_emails(tab)
+
+    for email in expected_job_emails:
+        assert email in job_emails, f"Expected '{email}' in job_emails"
+
+    for email in expected_contact_emails:
+        assert email in contact_emails, f"Expected '{email}' in contact_emails"
+
+    for email in excluded_emails:
+        assert email not in job_emails, f"'{email}' must not appear in job_emails"
+        assert email not in contact_emails, f"'{email}' must not appear in contact_emails"
+
+    overlap = set(job_emails) & set(contact_emails)
+    assert not overlap, f"Emails appeared in both categories: {overlap}"
