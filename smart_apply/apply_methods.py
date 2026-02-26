@@ -92,6 +92,9 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyStatus:
     
     await tab.disable_auto_solve_cloudflare_captcha()
 
+    # Some site shows Accept Cookie consent after while, so we need to wait for a bit to see
+    await wait_for_network_idle(tab, timeout=10, idle_time=3)
+
     # hide cookie banner if present to avoid interference with element detection and clicking
     await accept_cookie_consent(tab)
 
