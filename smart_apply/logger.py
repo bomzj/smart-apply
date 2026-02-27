@@ -1,9 +1,11 @@
 import logging
+import re
 from contextvars import ContextVar
 from datetime import date
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape
 
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -54,6 +56,12 @@ class _FileFormatter(logging.Formatter):
 
 
 class RichColoredFormatter(logging.Formatter):
+    _ansi_pattern = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+
+    def _plain_exception(self, exc_info) -> str:
+        raw_exception = self.formatException(exc_info)
+        return self._ansi_pattern.sub('', raw_exception)
+
     def format(self, record: logging.LogRecord) -> str:
         record.asctime = self.formatTime(record, self.datefmt)
         hostname = getattr(record, 'hostname', '')
@@ -80,7 +88,8 @@ class RichColoredFormatter(logging.Formatter):
         )
 
         if record.exc_info:
-            formatted += f"\n{self.formatException(record.exc_info)}"
+            exception_text = self._plain_exception(record.exc_info)
+            formatted += f"\n[white]{escape(exception_text)}[/white]"
 
         return formatted
 
