@@ -7,6 +7,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.markup import escape
 
+from smart_apply.config import settings
+
 
 PROJECT_ROOT = Path(__file__).parent.parent
 LOGS_DIR = PROJECT_ROOT / 'logs'
@@ -95,8 +97,6 @@ class RichColoredFormatter(logging.Formatter):
 
 
 def setup_logging():
-    from config import settings
-
     today = date.today().isoformat()
     log_dir = LOGS_DIR / today
     log_dir.mkdir(parents=True, exist_ok=True)

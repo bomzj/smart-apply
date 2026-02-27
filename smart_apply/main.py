@@ -130,5 +130,14 @@ def stats_panel(stats: dict[str, int]) -> Padding:
         (1, 0, 0, 0)
     )
 
+
+def run():
+    """Synchronous entry point for the CLI script."""
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        # Prevents ugly stack traces when you Ctrl+C
+        pass
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    run()

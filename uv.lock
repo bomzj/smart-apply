@@ -1497,7 +1497,7 @@ wheels = [
 [[package]]
 name = "smart-apply"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "debugpy" },
     { name = "google-api-python-client" },
