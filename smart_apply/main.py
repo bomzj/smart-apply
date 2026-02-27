@@ -89,8 +89,6 @@ async def main():
                                 stats["submitted_forms"] += 1
                             case NoLinksFound():
                                 log_info(f"No relevant links found on {host}.")
-                            case FailedAttempt():
-                                pass
                             case NoApplicationMethod():
                                 log_info(f"No email or form application were found on website {host}.")
                     
@@ -100,6 +98,8 @@ async def main():
                             case HttpError() if gmail_quota_exceeded(e):
                                 log_error(f"Gmail API rate limit reached: {e._get_reason()}")
                                 exit(0)
+                            case FailedAttempt():
+                                pass
                             case _:
                                 log_error(f"Failed to apply on website {host}: {e}")
 

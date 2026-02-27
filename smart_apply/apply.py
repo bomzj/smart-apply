@@ -128,7 +128,7 @@ async def apply_on_site(ctx: ApplyContext, start_url: str) -> ApplyStatus:
             case FailedAttempt():
                 failed_attempt = True
 
-    return FailedAttempt() if failed_attempt else NoApplicationMethod()
+    return Err(FailedAttempt()) if failed_attempt else NoApplicationMethod()
 
 
 async def apply_on_page(ctx: ApplyContext, url: str) -> ApplyStatus:
