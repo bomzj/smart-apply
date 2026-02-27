@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 Smart Apply is an AI agent that automates job applications by navigating company websites, solving captchas, extracting contact details, and submitting forms or sending emails.
-- **Stack**: Python 3.14+, Pydoll, Azure OpenAI (LLM), Gmail API.
+- **Stack**: Python 3.14+, Pydoll, Azure OpenAI (GPT-5-mini LLM), Gmail API.
 - **Dependency Manager**: `uv`.
 
 ## 2. Architecture & Data Flow
@@ -21,7 +21,7 @@ Top-level entry point is `smart_apply/main.py`.
 
 - **Run Application**:
   ```bash
-  uv run smart_apply/main.py
+  uv run apply
   ```
 - **Run Tests**:
   ```bash
@@ -35,10 +35,28 @@ Top-level entry point is `smart_apply/main.py`.
 
 ## 4. Key Patterns & Conventions
 
+### Feature-First Structure
+Do not organize the project by technical artifacts (e.g., no models/, dto/, services/, or utils/ folders). Group code by domain feature.
+
+- **Descriptive Modules**: Use names that describe the data or action.
+  - Bad: models.py, dto.py, types.py, helpers.py.
+  - Good: applicant.py, application_state.py, dom_elements.py, web_navigator.py.
+
+### Modern Generics (PEP 695+)
+Use the standard square bracket syntax for generics. **Never use `TypeVar` or `Generic` from the typing module**.
+```python
+# Good: Modern Generic Syntax
+def first[T](items: list[T]) -> T:
+    return items[0]
+
+# Good: Type Alias
+type SearchResult[T] = dict[str, T]
+```
+
 ### LLM Usage
 Use `ask_llm` from `smart_apply/llm.py` for complex tasks to interpret DOM elements or text.
 ```python
-from llm import ask_llm
+from smart_apply.llm import ask_llm
 # Example: Infer company name
 result = ask_llm(f"Infer company name from title: {tab.title()}")
 ```

@@ -72,7 +72,7 @@ uv run smart_apply/gmail.py
 2. Smart Apply can run **either locally or with Docker** — choose one of the options below.
 
 ```bash
-uv run smart_apply/main.py
+uv run apply
 ```
 
 Or
