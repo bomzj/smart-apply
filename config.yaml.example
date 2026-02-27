@@ -19,3 +19,5 @@ applicant:
   email: "your.email@example.com"
   subject: "Job Subject"
   pdf: "data/your-resume.pdf"
+  country: "your country"
+  company: "your company"

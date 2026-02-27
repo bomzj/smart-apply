@@ -79,6 +79,14 @@ class Config:
     @property
     def applicant_message(self) -> str:
         return self.get("applicant.message", "")
+    
+    @property
+    def applicant_country(self) -> str:
+        return self.get("applicant.country", "")
+    
+    @property
+    def applicant_company(self) -> str:
+        return self.get("applicant.company", "")
 
     @property
     def log_level(self) -> int:

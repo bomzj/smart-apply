@@ -1,6 +1,6 @@
 import pytest
 import urllib.parse
-from smart_apply.page_parsers import html_to_plain_text, infer_company_name, email_valid, pre_filter_links, extract_emails
+from smart_apply.page_parsers import html_to_plain_text, infer_company_name, valid_email, pre_filter_links, extract_emails
 from pydoll.browser.tab import Tab
 
 
@@ -64,7 +64,7 @@ async def test_infer_company_name(tab: Tab, url, expected_company_name):
     ],
 )
 def test_email_validation(email: str, expected: bool) -> None:
-    assert email_valid(email) is expected
+    assert valid_email(email) is expected
 
 
 # ── pre_filter_links tests ────────────────────────────────────────────

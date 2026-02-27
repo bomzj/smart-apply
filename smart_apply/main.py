@@ -6,7 +6,7 @@ from pydoll.browser.chromium import Chrome
 from pydoll.browser.options import ChromiumOptions
 
 from smart_apply.result import Err, Ok
-from smart_apply.apply_methods import (
+from smart_apply.apply import (
     ApplyContext, AppliedViaEmail, AppliedViaForm, 
     NoLinksFound, FailedAttempt, NoApplicationMethod,
     apply_on_site, hostname

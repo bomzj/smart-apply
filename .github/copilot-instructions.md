@@ -36,7 +36,7 @@ Top-level entry point is `smart_apply/main.py`.
 ## 4. Key Patterns & Conventions
 
 ### LLM Usage
-Do not write hardcoded regex for complex parsing. Use `ask_llm` from `smart_apply/llm.py` to interpret DOM elements or text.
+Use `ask_llm` from `smart_apply/llm.py` for complex tasks to interpret DOM elements or text.
 ```python
 from llm import ask_llm
 # Example: Infer company name

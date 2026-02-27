@@ -231,23 +231,13 @@ async def extract_emails(tab: Tab) -> tuple[list[str], list[str]]:
     emails = json.loads(res)
     
     # filter out invalid emails that don't match a basic email pattern (as a safety check against LLM hallucinations)
-    emails['job_emails'] = [email for email in emails['job_emails'] if email_valid(email)]
-    emails['contact_emails'] = [email for email in emails['contact_emails'] if email_valid(email)]
+    emails['job_emails'] = [email for email in emails['job_emails'] if valid_email(email)]
+    emails['contact_emails'] = [email for email in emails['contact_emails'] if valid_email(email)]
 
     return emails['job_emails'], emails['contact_emails']  
 
 
-async def extract_forms(tab: Tab) -> list[str]:
-    ''' Extract all forms on the current page as list of html snippets'''
-    result = await tab.execute_script(
-        "return Array.from(document.querySelectorAll('form')).map(el => el.outerHTML)",
-        return_by_value=True
-    )
-    # TODO: maybe we should scan iframes containing forms as well?
-    return script_value(result) or []
-
-
-async def element_outer_html(element: WebElement) -> str:
+async def outer_html(element: WebElement) -> str:
     result = await element.execute_script("return this.outerHTML", return_by_value=True)
     return script_value(result) or ''
 
@@ -286,7 +276,7 @@ def html_to_plain_text(html):
     return html
 
 
-def email_valid(email: str) -> bool:
+def valid_email(email: str) -> bool:
 
     _MAX_EMAIL_LENGTH = 254
     _MAX_LOCAL_LENGTH = 64
