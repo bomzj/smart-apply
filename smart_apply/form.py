@@ -57,7 +57,6 @@ async def application_form(tab: Tab) -> WebElement | None:
     res = ask_llm(task, "smart", reasoning="high")
 
     if not res.isdigit():
-        log_warning(f"LLM did not return a valid form index. Response: {res}")
         return None
     
     idx = int(res)
